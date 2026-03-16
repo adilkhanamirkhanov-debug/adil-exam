@@ -3,10 +3,14 @@ import sqlite3
 import pandas as pd
 from openai import OpenAI
 
-# --- 1. CONFIG ---
-st.set_page_config(page_title="AdilEduAssessment", layout="wide", initial_sidebar_state="expanded")
+# 1. Принудительно разворачиваем сайдбар в конфиге
+st.set_page_config(
+    page_title="AdilEduAssessment", 
+    layout="wide", 
+    initial_sidebar_state="expanded" 
+)
 
-# --- 2. LOAD EXTERNAL CSS ---
+# 2. Загрузка CSS
 def load_css(file_name):
     try:
         with open(file_name, "r", encoding="utf-8") as f:
@@ -16,6 +20,20 @@ def load_css(file_name):
 
 load_css("style.css")
 
+# 3. СИЛОВОЙ ФИКС САЙДБАРА (Вставлять сразу после load_css)
+if st.session_state.get("role") != "Student":
+    st.markdown("""
+        <style>
+            section[data-testid="stSidebar"] {
+                display: flex !important;
+                visibility: visible !important;
+                width: 300px !important;
+            }
+            [data-testid="collapsedControl"] {
+                display: flex !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 # --- 3. DATABASE ---
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
