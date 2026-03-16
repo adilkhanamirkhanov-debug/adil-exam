@@ -2,6 +2,17 @@ import streamlit as st
 from openai import OpenAI
 import sqlite3
 
+# --- ПОДКЛЮЧЕНИЕ ВНЕШНЕГО ДИЗАЙНА CSS ---
+def load_css(file_name):
+    try:
+        with open(file_name, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except Exception as e:
+        pass # Если файла нет, просто игнорируем
+
+load_css("style.css")
+# -----------------------------------------
+
 # --- НАСТРОЙКИ СТРАНИЦЫ И ТЕМЫ ---
 # Убрали эмодзи из page_icon
 st.set_page_config(page_title="AI Экзаменатор", layout="wide", initial_sidebar_state="expanded")
