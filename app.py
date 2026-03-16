@@ -100,42 +100,7 @@ def get_ai_client():
 
 client = get_ai_client()
 
-# --- СЛОВАРЬ ПЕРЕВОДОВ ---
-translations = {
-    "Русский": {
-        # ... здесь оставьте ваши старые переводы, которые уже были (если они есть) ...
-        "about_title": "### О платформе",
-        "about_text": "AI Exam Platform — это инновационная система проверки знаний. Искусственный интеллект автоматически анализирует эссе, оценивает их по заданным критериям и предоставляет развернутый фидбек.",
-        "teacher_login_title": "### Вход для преподавателя",
-        "login": "Логин",
-        "password": "Пароль",
-        "btn_login": "Войти в панель",
-        "student_title": "<h1 style='text-align: center;'>Сдача экзамена</h1>",
-        "student_subtitle": "<p style='text-align: center; color: #bbaadd !important;'>Введите код доступа, выданный преподавателем</p>",
-        "access_code": "Код доступа:",
-        "access_placeholder": "Например: EXAM-123",
-        "btn_start": "Начать экзамен",
-        "error_login": "Неверный логин или пароль",
-        "error_code": "Экзамен с таким кодом не найден."
-    },
-    
-    "English": {
-        # ... здесь оставьте ваши старые переводы, которые уже были (если они есть) ...
-        "about_title": "### About the Platform",
-        "about_text": "AI Exam Platform is an innovative knowledge assessment system. The AI automatically analyzes essays, evaluates them according to set criteria, and provides detailed feedback.",
-        "teacher_login_title": "### Teacher Login",
-        "login": "Username",
-        "password": "Password",
-        "btn_login": "Enter Dashboard",
-        "student_title": "<h1 style='text-align: center;'>Take the Exam</h1>",
-        "student_subtitle": "<p style='text-align: center; color: #bbaadd !important;'>Enter the access code provided by your teacher</p>",
-        "access_code": "Access Code:",
-        "access_placeholder": "E.g.: EXAM-123",
-        "btn_start": "Start Exam",
-        "error_login": "Invalid username or password",
-        "error_code": "No exam found with this code."
-    }
-}
+
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
@@ -172,25 +137,8 @@ if "current_exam" not in st.session_state:
 if "lang" not in st.session_state:
     st.session_state.lang = 'ru'
 
-# --- ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКА ---
-lang_codes = ['ru', 'kk', 'en']
-lang_names = {'ru': 'Русский', 'kk': 'Қазақша', 'en': 'English'}
 
-def on_lang_change():
-    st.session_state.lang = st.session_state.selected_lang_full
 
-st.sidebar.markdown("---")
-st.sidebar.selectbox(
-    "Язык / Language / Тіл:",
-    options=lang_codes,
-    format_func=lambda x: lang_names[x],
-    key="selected_lang_full",
-    index=lang_codes.index(st.session_state.lang),
-    on_change=on_lang_change
-)
-st.sidebar.markdown("---")
-
-L = translations[st.session_state.lang]
 
 # --- ФУНКЦИИ ИИ ---
 def generate_criteria(task_description):
@@ -203,33 +151,33 @@ def grade_essay(task_title, task_desc, criteria, essay):
     response = client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.2)
     return response.choices[0].message.content
 
-# --- ГЛАВНОЕ МЕНЮ (Стартовый экран) ---
+# --- MAIN MENU (Start Screen) ---
 if st.session_state.role is None:
     
-    # 1. БОКОВОЕ МЕНЮ (Описание и вход для учителя)
+    # 1. SIDEBAR (About & Teacher Login)
     with st.sidebar:
-        # ПРЕДПОЛАГАЕТСЯ, ЧТО ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКОВ У ВАС УЖЕ ЕСТЬ ГДЕ-ТО ЗДЕСЬ ИЛИ ВЫШЕ
-        
-        st.markdown(L['about_title'])
-        st.info(L['about_text'])
+        st.markdown("### About the Platform")
+        st.info(
+            "AI Exam Platform is an innovative knowledge assessment system. "
+            "The AI automatically analyzes essays, evaluates them according to "
+            "set criteria, and provides detailed feedback."
+        )
         
         st.markdown("---")
         
-        st.markdown(L['teacher_login_title'])
-        # Поля для ввода логина и пароля
-        teacher_username = st.text_input(L['login'], key="t_login")
-        teacher_password = st.text_input(L['password'], type="password", key="t_pass")
+        st.markdown("### Teacher Login")
+        teacher_username = st.text_input("Username", key="t_login")
+        teacher_password = st.text_input("Password", type="password", key="t_pass")
         
-        if st.button(L['btn_login'], use_container_width=True):
-            if teacher_username == "admin" and teacher_password == "12345": # Проверьте вашу функцию авторизации!
+        if st.button("Login to Dashboard", use_container_width=True):
+            # Check credentials (replace with your logic if needed)
+            if teacher_username == "admin" and teacher_password == "12345":
                 st.session_state.role = "Teacher"
                 st.rerun()
             else:
-                st.error(L['error_login'])
+                st.error("Invalid username or password")
 
-
-    # 2. ГЛАВНАЯ СТРАНИЦА (Только для студента)
-    # Логотип по центру
+    # 2. MAIN PAGE (Student Access)
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         try:
@@ -237,25 +185,22 @@ if st.session_state.role is None:
         except:
             pass
             
-    st.markdown(L['student_title'], unsafe_allow_html=True)
-    st.markdown(L['student_subtitle'], unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>Take the Exam</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #bbaadd !important;'>Enter the access code provided by your teacher</p>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Поле ввода кода по центру
     col_space1, col_input, col_space3 = st.columns([1, 2, 1])
     with col_input:
-        access_code = st.text_input(L['access_code'], placeholder=L['access_placeholder'], label_visibility="collapsed")
+        access_code = st.text_input("Access Code:", placeholder="E.g.: EXAM-123", label_visibility="collapsed")
         
-        if st.button(L['btn_start'], type="primary", use_container_width=True):
-            # ВАЖНО: убедитесь, что функция называется именно так, как у вас (get_exam_by_code)
+        if st.button("Start Exam", type="primary", use_container_width=True):
             exam = get_exam_by_code(access_code) 
             if exam:
                 st.session_state.role = "Student"
                 st.session_state.current_exam = exam
                 st.rerun()
             else:
-                st.error(L['error_code'])
-
+                st.error("No exam found with this code.")
 # --- ЛИЧНЫЙ КАБИНЕТ УЧИТЕЛЯ ---
 elif st.session_state.role == "Teacher":
     col_head1, col_head2 = st.columns([1, 3])
