@@ -291,7 +291,7 @@ elif st.session_state.role == "Student":
     st.markdown("""
         <style>
             [data-testid="stSidebar"] {display: none !important; width: 0 !important;}
-            section[data-testid="stSidebar"] {display: none !important;}
+            section[data-testid="stSidebar"] 
             [data-testid="collapsedControl"] {display: none !important;}
             header {display: none !important; visibility: hidden !important;}
             #MainMenu {visibility: hidden !important;}
