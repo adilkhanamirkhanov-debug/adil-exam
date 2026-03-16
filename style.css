@@ -56,3 +56,14 @@ h1, h2, h3, p, span, label {
     background-color: #1a0a33 !important;
     border-right: 1px solid #4B0082 !important;
 }
+/* --- УБИРАЕМ БЕЛУЮ ШАПКУ И ОТСТУПЫ --- */
+[data-testid="stHeader"] {
+    background-color: transparent !important;
+    display: none !important;
+}
+
+/* Уменьшаем огромный отступ сверху на главной странице */
+.block-container {
+    padding-top: 2rem !important; 
+    margin-top: 0 !important;
+}
