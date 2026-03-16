@@ -46,7 +46,7 @@ header[data-testid="stHeader"] {
 }
 
 h1, h2, h3, p, label, span {
-    color: #ffffff !important;
+    color: black !important;
 }
 /* ВЕСЬ САЙДБАР: Темный фон */
 [data-testid="stSidebar"] {
