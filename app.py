@@ -148,3 +148,32 @@ elif st.session_state.role == "Student":
     if st.button("Exit"):
         st.session_state.role = None
         st.rerun()
+# --- ВСТАВИТЬ СРАЗУ ПОСЛЕ load_css("style.css") ---
+
+if st.session_state.get("role") != "Student":
+    # Показываем сайдбар для всех, кроме Студента
+    st.markdown("""
+        <style>
+            section[data-testid="stSidebar"] {
+                display: flex !important;
+                visibility: visible !important;
+                position: fixed !important;
+                z-index: 1000001 !important;
+            }
+            [data-testid="collapsedControl"] {
+                display: flex !important;
+                visibility: visible !important;
+                z-index: 1000002 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    # Скрываем только для студента
+    st.markdown("""
+        <style>
+            section[data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                display: none !important;
+                visibility: hidden !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
