@@ -78,3 +78,28 @@ h1, h2, h3, p, label, span {
     background-color: #4b0082 !important; /* Чуть темнее основной кнопки */
     border: 1px solid #6a11cb !important;
 }
+/* ЦВЕТ ТЕКСТА ПРИ ВВОДЕ (ВЕЗДЕ: в центре и в сайдбаре) */
+input, textarea {
+    color: #ffffff !important; /* Текст, который пишет пользователь */
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Цвет подсказок (Placeholder) */
+input::placeholder, textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Фикс для конкретных элементов Streamlit, чтобы текст точно был белым */
+[data-testid="stSidebar"] .stTextInput>div>div>input {
+    color: white !important;
+}
+
+.stTextInput>div>div>input, .stTextArea>div>div>textarea {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Цвет текста в выпадающих списках и других элементах ввода */
+.stSelectbox div[data-baseweb="select"] > div {
+    color: white !important;
+}
