@@ -38,3 +38,19 @@ h1, h2, h3, p, span, label, .stMarkdown {
     visibility: visible !important;
     display: flex !important;
 }
+/* ПОЛНОЕ УДАЛЕНИЕ БЕЛОГО ХЕДЕРА И ОТСТУПА */
+header[data-testid="stHeader"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0px !important;
+}
+
+/* Убираем верхний отступ у контента, который оставляет хедер */
+.main .block-container {
+    padding-top: 1rem !important;
+}
+
+/* Дополнительно скрываем кнопку меню (три точки), если она мешает */
+#MainMenu {
+    display: none !important;
+}
