@@ -1,8 +1,9 @@
-/* ОБЩИЕ СТИЛИ */
+/* ГЛАВНЫЙ ФОН */
 .stApp {
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
 
+/* ТЕКСТОВЫЙ ЛОГОТИП */
 .logo-text {
     font-size: 52px !important;
     font-weight: 800 !important;
@@ -10,11 +11,23 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    margin-bottom: 5px;
+    margin-top: 20px;
 }
 
-h1, h2, h3, p, span, label, .stMarkdown {
-    color: #ffffff !important;
+/* КНОПКА ОТКРЫТИЯ САЙДБАРА (ФЛАЖОК) */
+/* Смещаем кнопку чуть ниже, чтобы она не «прилипала» к углу */
+button[kind="header"] {
+    top: 15px !important;
+    left: 10px !important;
+    background-color: rgba(106, 17, 203, 0.3) !important; /* Легкая подложка */
+    border-radius: 50% !important;
+}
+
+/* СКРЫВАЕМ БЕЛЫЙ ХЕДЕР ТАК, ЧТОБЫ ОН НЕ УЛЕТАЛ */
+header[data-testid="stHeader"] {
+    background-color: transparent !important; /* Делаем прозрачным */
+    border-bottom: none !important;
+    z-index: 0 !important; /* Уводим на задний план */
 }
 
 /* КНОПКИ И HOVER */
@@ -23,18 +36,14 @@ h1, h2, h3, p, span, label, .stMarkdown {
     color: white !important;
     border-radius: 12px !important;
     transition: all 0.3s ease !important;
-    width: 100%;
 }
 
 .stButton>button:hover {
     background-color: #ff4b4b !important;
     transform: translateY(-3px) !important;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* СТИЛЬ САЙДБАРА (ЯВНЫЙ) */
-[data-testid="stSidebar"] {
-    background-color: rgba(26, 10, 51, 0.98) !important;
-    visibility: visible !important;
-    display: flex !important;
+/* ТЕКСТЫ */
+h1, h2, h3, p, label, .stMarkdown {
+    color: #ffffff !important;
 }
