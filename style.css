@@ -1,4 +1,4 @@
-/* ОБЩИЕ СТИЛИ */
+/* ГЛАВНЫЙ ФОН И ТЕКСТ */
 .stApp {
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
@@ -23,7 +23,6 @@ h1, h2, h3, p, span, label, .stMarkdown {
     color: white !important;
     border-radius: 12px !important;
     transition: all 0.3s ease !important;
-    width: 100%;
 }
 
 .stButton>button:hover {
@@ -32,25 +31,7 @@ h1, h2, h3, p, span, label, .stMarkdown {
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* СТИЛЬ САЙДБАРА (ЯВНЫЙ) */
-[data-testid="stSidebar"] {
-    background-color: rgba(26, 10, 51, 0.98) !important;
-    visibility: visible !important;
-    display: flex !important;
-}
-/* ПОЛНОЕ УДАЛЕНИЕ БЕЛОГО ХЕДЕРА И ОТСТУПА */
+/* СКРЫТИЕ ХЕДЕРА */
 header[data-testid="stHeader"] {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0px !important;
-}
-
-/* Убираем верхний отступ у контента, который оставляет хедер */
-.main .block-container {
-    padding-top: 1rem !important;
-}
-
-/* Дополнительно скрываем кнопку меню (три точки), если она мешает */
-#MainMenu {
     display: none !important;
 }
