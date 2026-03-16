@@ -116,7 +116,7 @@ st.markdown("""
     }
     .stButton > button[kind="primary"] {
         background-color: #0056b3;
-        color: white;
+        color: blue;
     }
     .stButton > button[kind="primary"]:hover {
         background-color: #004494;
