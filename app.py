@@ -20,29 +20,28 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 3. SIDEBAR STYLING (RELIABLE FIX) ---
+# --- 3. SIDEBAR STYLING (THE RELIABLE WAY) ---
 if "role" not in st.session_state:
     st.session_state.role = None
 
+# Если не студент — показываем флажок управления
 if st.session_state.role != "Student":
-    # Показываем флажок и сайдбар для учителя
     st.markdown("""
 <style>
-    section[data-testid="stSidebar"] {
-        display: flex !important;
-        visibility: visible !important;
-    }
     [data-testid="collapsedControl"] {
         display: flex !important;
-        top: 20px !important; /* Смещаем флажок вниз */
+        top: 25px !important;
+    }
+    section[data-testid="stSidebar"] {
+        display: flex !important;
     }
 </style>
 """, unsafe_allow_html=True)
 else:
-    # Скрываем всё для студента
+    # Скрываем полностью для студентов
     st.markdown("""
 <style>
-    section[data-testid="stSidebar"], [data-testid="collapsedControl"] {
+    [data-testid="collapsedControl"], section[data-testid="stSidebar"] {
         display: none !important;
     }
 </style>
@@ -76,7 +75,6 @@ def grade_essay(title, desc, criteria, essay):
 
 # --- 6. NAVIGATION ---
 
-# ГЛАВНЫЙ ЭКРАН
 if st.session_state.role is None:
     with st.sidebar:
         st.markdown("### Teacher Login")
@@ -87,7 +85,7 @@ if st.session_state.role is None:
                 st.session_state.role = "Teacher"
                 st.rerun()
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
@@ -105,11 +103,9 @@ if st.session_state.role is None:
             else:
                 st.error("Code not found")
 
-# ПАНЕЛЬ УЧИТЕЛЯ
 elif st.session_state.role == "Teacher":
     st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"role": None}))
     st.markdown("## Teacher Dashboard")
-    
     tab1, tab2 = st.tabs(["Add Assignment", "View Results"])
     with tab1:
         with st.form("add_ex"):
@@ -134,15 +130,12 @@ elif st.session_state.role == "Teacher":
                     st.write(r[2])
                     st.info(r[3])
 
-# СТУДЕНТ
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important;">{exam["title"]}</p>', unsafe_allow_html=True)
-    
     st.write(exam['desc'])
     s_name = st.text_input("Your Name")
     s_essay = st.text_area("Your Essay", height=350)
-    
     if st.button("Submit Work", type="primary"):
         if s_name and s_essay:
             with st.spinner("AI is grading..."):
@@ -152,8 +145,6 @@ elif st.session_state.role == "Student":
                 db_conn.commit()
                 st.success("Done!")
                 st.markdown(grade)
-        else: st.warning("Fill all fields")
-    
     if st.button("Exit"):
         st.session_state.role = None
         st.rerun()
