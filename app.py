@@ -300,44 +300,61 @@ def grade_essay(task_title, task_desc, criteria, essay):
     response = client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.2)
     return response.choices[0].message.content
 
-# --- ГЛАВНАЯ СТРАНИЦА: ВХОД В СИСТЕМУ ---
+# --- ГЛАВНОЕ МЕНЮ (Стартовый экран) ---
 if st.session_state.role is None:
-    col_log, col_space, col_main = st.columns([1, 1, 3])
-    with col_log:
-        try:
-            st.image("Ai.png", width=150) 
-        except:
-            pass
     
-    with col_main:
-        st.title(L['welcome_title'])
-        st.write(L['role_select_text'])
-    
-    col_login1, col_space_l, col_login2 = st.columns([2, 1, 2])
-    
-    with col_login1:
-        st.subheader(L['teacher_login_header'])
-        t_login = st.text_input(L['login_label'])
-        t_pass = st.text_input(L['pass_label'], type="password")
-        if st.button(L['teacher_login_btn'], use_container_width=True, type="primary"):
-            role = verify_user(t_login, t_pass)
-            if role == "Teacher":
+    # 1. БОКОВОЕ МЕНЮ (Описание и вход для учителя)
+    with st.sidebar:
+        st.markdown("### 🧠 О платформе")
+        st.info(
+            "AI Exam Platform — это инновационная система проверки знаний. "
+            "Искусственный интеллект автоматически анализирует эссе, оценивает их "
+            "по заданным критериям и предоставляет развернутый фидбек."
+        )
+        
+        st.markdown("---")
+        
+        st.markdown("### 👨‍🏫 Вход для преподавателя")
+        # Поля для ввода логина и пароля
+        teacher_username = st.text_input("Логин", key="t_login")
+        teacher_password = st.text_input("Пароль", type="password", key="t_pass")
+        
+        if st.button("Войти в панель управления", use_container_width=True):
+            if teacher_username == "admin" and teacher_password == "12345": # Замените на вашу функцию проверки (например: if authenticate(teacher_username, teacher_password): )
                 st.session_state.role = "Teacher"
                 st.rerun()
             else:
-                st.error(L['admin_check_err'])
-                
-    with col_login2:
-        st.subheader(L['student_login_header'])
-        s_code = st.text_input(L['code_entry_label'])
-        if st.button(L['student_login_btn'], use_container_width=True, type="primary"):
-            exam = get_exam_by_code(s_code)
+                st.error("❌ Неверный логин или пароль")
+
+
+    # 2. ГЛАВНАЯ СТРАНИЦА (Только для студента)
+    # Делаем пустые колонки по бокам, чтобы логотип был ровно по центру и нужного размера
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        try:
+            # use_container_width делает картинку большой и адаптивной
+            st.image("Ai.png", use_container_width=True) 
+        except:
+            pass
+            
+    st.markdown("<h1 style='text-align: center;'>Сдача экзамена</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #bbaadd !important;'>Введите код доступа, выданный преподавателем</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True) # Небольшой отступ
+    
+    # Снова используем колонки, чтобы поле для ввода кода не было слишком растянутым
+    col_space1, col_input, col_space3 = st.columns([1, 2, 1])
+    with col_input:
+        access_code = st.text_input("Код доступа:", placeholder="Например: EXAM-123", label_visibility="collapsed")
+        
+        if st.button("🚀 Начать экзамен", type="primary", use_container_width=True):
+            # Замените get_exam_by_code на вашу реальную функцию поиска экзамена в БД
+            exam = get_exam_by_code(access_code) 
             if exam:
                 st.session_state.role = "Student"
                 st.session_state.current_exam = exam
                 st.rerun()
             else:
-                st.error(L['exam_not_found_err'])
+                st.error("⚠️ Экзамен с таким кодом не найден. Проверьте правильность кода.")
 
 # --- ЛИЧНЫЙ КАБИНЕТ УЧИТЕЛЯ ---
 elif st.session_state.role == "Teacher":
