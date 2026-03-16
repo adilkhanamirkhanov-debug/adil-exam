@@ -65,6 +65,11 @@ h1, h2, h3, p, span, label {
 /* Уменьшаем огромный отступ сверху на главной странице */
 
 
+
+.block-container {
+    padding-top: 2rem !important; 
+    margin-top: 0 !important;
+}
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
@@ -92,7 +97,3 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-.block-container {
-    padding-top: 2rem !important; 
-    margin-top: 0 !important;
-}
