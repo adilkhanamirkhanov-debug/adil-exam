@@ -201,79 +201,92 @@ if st.session_state.role is None:
                 st.rerun()
             else:
                 st.error("No exam found with this code.")
-# --- ЛИЧНЫЙ КАБИНЕТ УЧИТЕЛЯ ---
+# --- TEACHER DASHBOARD ---
 elif st.session_state.role == "Teacher":
-    col_head1, col_head2 = st.columns([1, 3])
-    with col_head1:
-        try:
-            st.image("Ai.png", width=100)
-        except:
-            pass
-    with col_head2:
-        st.sidebar.title(L['sidebar_teacher_title'])
+    with st.sidebar:
+        st.title("Teacher Panel")
+        if st.button("Logout"):
+            st.session_state.role = None
+            st.rerun()
 
-    if st.sidebar.button(L['logout_btn']):
-        st.session_state.role = None
-        st.rerun()
-        
-    tab1, tab2 = st.tabs([L['tabs_create_assignment'], L['tabs_graded_works']])
+    tab1, tab2 = st.tabs(["Create Assignment", "Graded Works"])
     
     with tab1:
-        st.header(L['create_assignment_header'])
-        new_title = st.text_input(L['new_title_label'])
-        new_desc = st.text_area(L['new_desc_label'], height=150)
-        new_code = st.text_input(L['new_code_label'])
+        st.header("Create New Assignment")
+        new_title = st.text_input("Assignment Title")
+        new_desc = st.text_area("Task Description (for AI and Students)", height=150)
+        new_code = st.text_input("Access Code (e.g., EXAM-2024)")
         
-        st.markdown(f"**{L['new_criteria_label']}**")
+        st.markdown("**Grading Criteria**")
         col_crit1, col_crit2 = st.columns([3, 1])
         with col_crit1:
-            new_criteria = st.text_area(L['task_label'], height=200, placeholder=L['generated_crit_info'])
+            # If AI generated criteria, it will appear here
+            default_crit = st.session_state.get("gen_crit", "")
+            new_criteria = st.text_area("Criteria", value=default_crit, height=200, placeholder="Describe how AI should grade the work...")
         with col_crit2:
-            if st.button(L['generate_criteria_btn'], use_container_width=True):
+            if st.button("AI Generate Criteria", use_container_width=True):
                 if new_desc:
-                    st.session_state.gen_crit = generate_criteria(new_desc)
-                    st.rerun()
+                    with st.spinner("Generating..."):
+                        st.session_state.gen_crit = generate_criteria(new_desc)
+                        st.rerun()
+                else:
+                    st.warning("Please fill the description first!")
         
-        if "gen_crit" in st.session_state:
-            with st.expander(L['generated_crit_info'], expanded=True):
-                st.info(st.session_state.gen_crit)
-
-        if st.button(L['save_assignment_btn'], type="primary", use_container_width=True):
+        if st.button("Save Assignment", type="primary", use_container_width=True):
             if new_title and new_desc and new_criteria and new_code:
                 success = add_exam(new_code, new_title, new_desc, new_criteria)
                 if success:
-                    st.success(f"Сохранено! Код для студентов: {new_code}")
+                    st.success(f"Saved! Student Access Code: {new_code}")
                     if "gen_crit" in st.session_state:
                         del st.session_state.gen_crit
                 else:
-                    st.error(L['code_exists_err'])
+                    st.error("This Access Code already exists!")
             else:
-                st.error(L['fields_empty_err'])
+                st.error("Please fill all fields!")
 
     with tab2:
-        st.header(L['graded_works_header'])
+        st.header("Graded Submissions")
         submissions = get_submissions()
         if not submissions:
-            st.info("Пока никто не сдал.")
+            st.info("No submissions yet.")
         else:
+            # --- DOWNLOAD SECTION ---
+            import pandas as pd
+            import io
+
+            # Convert database results to a DataFrame for easy export
+            df = pd.DataFrame(submissions)
+            
+            # Create CSV buffer
+            csv = df.to_csv(index=False).encode('utf-16')
+            
+            st.download_button(
+                label="📥 Download All Results (CSV)",
+                data=csv,
+                file_name="exam_results.csv",
+                mime="text/csv",
+            )
+            st.markdown("---")
+
+            # Display individual cards
             for sub in reversed(submissions):
-                grade_val = "0"
+                grade_val = "N/A"
                 try:
-                    parts = sub['grade'].split(' / 100')
-                    grade_val = parts[0].split(': ')[-1]
+                    # Logic to extract numerical grade if possible
+                    grade_val = sub['grade'].split('/')[0].strip()
                 except:
                     pass
                 
-                exp_title = L['graded_work_info_title'].format(student=sub['name'], exam=sub['title'], grade=grade_val)
+                exp_title = f"Student: {sub['name']} | Exam: {sub['title']} | Result: {grade_val}"
                 with st.expander(exp_title):
-                    st.markdown(f"**{L['student_essay_section']}**\n\n{sub['essay']}")
+                    st.markdown(f"**Student's Essay:**\n\n{sub['essay']}")
                     st.markdown("---")
-                    st.markdown(f"**{L['ai_result_section']}**\n\n{sub['grade']}")
+                    st.markdown(f"**AI Feedback & Grade:**\n\n{sub['grade']}")
 
-# --- ЛИЧНЫЙ КАБИНЕТ СТУДЕНТА ---
+# --- STUDENT AREA ---
 elif st.session_state.role == "Student":
     
-    # Жестко скрываем боковое меню и шапку сайта (Режим киоска)
+    # Kiosk Mode: Hiding sidebar and header via CSS
     st.markdown("""
         <style>
             [data-testid="stSidebar"] {display: none !important; width: 0 !important;}
@@ -293,73 +306,69 @@ elif st.session_state.role == "Student":
         except:
             pass
     with col_head2_s:
-        st.title(L['sidebar_student_title'])
+        st.title("Examination Portal")
 
     exam = st.session_state.current_exam
-    st.header(L['student_exam_welcome'].format(exam_title=exam['title']))
+    st.header(f"Exam: {exam['title']}")
     
-    with st.expander(L['task_label'], expanded=True):
-        st.markdown(L['exam_description'].format(desc=exam['desc']))
-        st.markdown(L['exam_criteria'].format(criteria=exam['criteria']))
+    with st.expander("Task Instructions", expanded=True):
+        st.markdown(f"**Description:**\n{exam['desc']}")
+        st.markdown(f"**Grading Criteria:**\n{exam['criteria']}")
         
     st.markdown("---")
     
-    # Инициализация состояния сдачи работы для студента
     if "student_submitted" not in st.session_state:
         st.session_state.student_submitted = False
         st.session_state.student_result = ""
         st.session_state.student_name_saved = ""
 
-    # Если студент ЕЩЕ НЕ сдал работу — показываем поля ввода
     if not st.session_state.student_submitted:
-        student_name = st.text_input(L['student_name_label'])
-        essay_text = st.text_area(L['task_label'], height=300)
+        student_name = st.text_input("Enter your Full Name")
+        essay_text = st.text_area("Write your essay here", height=300)
         
         st.markdown("---")
         
-        if st.button(L['submit_work_btn'], type="primary", use_container_width=True):
+        if st.button("Submit My Work", type="primary", use_container_width=True):
             if student_name and essay_text:
-                with st.spinner(L['submission_spinner']):
+                with st.spinner("AI is evaluating your work... Please wait."):
                     result = grade_essay(exam['title'], exam['desc'], exam['criteria'], essay_text)
                     
-                    # Сохраняем в базу данных навсегда
+                    # Save to DB
                     add_submission(student_name, exam['title'], essay_text, result)
                     
-                    # Сохраняем результаты в сессию, чтобы они не пропали
                     st.session_state.student_result = result
                     st.session_state.student_name_saved = student_name
                     st.session_state.student_submitted = True
-                    st.rerun() # Перезагружаем страницу, чтобы показать результаты
+                    st.rerun()
             else:
-                st.warning(L['submission_warning'])
+                st.warning("Please enter your name and write the essay before submitting!")
 
-    # Если студент УЖЕ сдал работу — показываем результат и кнопки выхода/скачивания
     else:
-        st.success(L['submission_success'])
+        st.success("Your work has been successfully submitted and graded!")
         
-        with st.expander("Ваш результат и отзыв ИИ", expanded=True):
+        with st.expander("Your Result & AI Feedback", expanded=True):
             st.markdown(st.session_state.student_result)
             
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
         
-        # Кнопка 1: Скачать результат в TXT
         with col_btn1:
-            # Формируем текст для скачивания
-            feedback_file_content = f"Студент: {st.session_state.student_name_saved}\nЭкзамен: {exam['title']}\n\n=== РЕЗУЛЬТАТ И ОТЗЫВ ИИ ===\n{st.session_state.student_result}"
+            feedback_file_content = (
+                f"Student: {st.session_state.student_name_saved}\n"
+                f"Exam: {exam['title']}\n\n"
+                f"=== RESULT AND FEEDBACK ===\n{st.session_state.student_result}"
+            )
             
             st.download_button(
-                label="📥 Скачать Feedback (TXT)",
+                label="📥 Download Feedback (TXT)",
                 data=feedback_file_content,
                 file_name=f"Result_{st.session_state.student_name_saved}.txt",
                 mime="text/plain",
                 use_container_width=True
             )
             
-        # Кнопка 2: Выход в главное меню
         with col_btn2:
-            if st.button("🚪 Выйти в главное меню", use_container_width=True):
-                # Очищаем сессию и возвращаем на стартовый экран
+            if st.button("🚪 Exit to Main Menu", use_container_width=True):
                 st.session_state.student_submitted = False
                 st.session_state.student_result = ""
                 st.session_state.student_name_saved = ""
