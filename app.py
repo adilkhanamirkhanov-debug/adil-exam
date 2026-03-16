@@ -3,14 +3,14 @@ import sqlite3
 import pandas as pd
 from openai import OpenAI
 
-# 1. Принудительно разворачиваем сайдбар в конфиге
+# --- 1. CONFIG ---
 st.set_page_config(
     page_title="AdilEduAssessment", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
 
-# 2. Загрузка CSS
+# --- 2. CSS LOADING ---
 def load_css(file_name):
     try:
         with open(file_name, "r", encoding="utf-8") as f:
@@ -20,21 +20,37 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# 3. СИЛОВОЙ ФИКС САЙДБАРА (Вставлять сразу после load_css)
-if st.session_state.get("role") != "Student":
+# --- 3. SIDEBAR STYLING (FIX INDENTATION ERROR) ---
+if "role" not in st.session_state:
+    st.session_state.role = None
+
+if st.session_state.role != "Student":
+    # Принудительно показываем для Учителя и Меню
     st.markdown("""
-        <style>
-            section[data-testid="stSidebar"] {
-                display: flex !important;
-                visibility: visible !important;
-                width: 300px !important;
-            }
-            [data-testid="collapsedControl"] {
-                display: flex !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-# --- 3. DATABASE ---
+<style>
+    section[data-testid="stSidebar"] {
+        display: flex !important;
+        visibility: visible !important;
+    }
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+else:
+    # Принудительно скрываем для Студента
+    st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 4. DATABASE ---
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
     c = conn.cursor()
@@ -44,10 +60,6 @@ def init_db():
     return conn
 
 db_conn = init_db()
-
-# --- 4. SESSION STATE ---
-if "role" not in st.session_state: st.session_state.role = None
-if "current_exam" not in st.session_state: st.session_state.current_exam = None
 
 # --- 5. AI LOGIC ---
 client = OpenAI(
@@ -126,7 +138,6 @@ elif st.session_state.role == "Teacher":
 
 # СТУДЕНТ
 elif st.session_state.role == "Student":
-    st.markdown("<style>[data-testid='stSidebar'] {display:none !important;}</style>", unsafe_allow_html=True)
     exam = st.session_state.current_exam
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important;">{exam["title"]}</p>', unsafe_allow_html=True)
     
@@ -148,8 +159,3 @@ elif st.session_state.role == "Student":
     if st.button("Exit"):
         st.session_state.role = None
         st.rerun()
-
-                visibility: hidden !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
