@@ -101,33 +101,7 @@ def get_ai_client():
 client = get_ai_client()
 
 
-# --- CUSTOM CSS ---
-st.markdown("""
-<style>
-    .stButton > button {
-        border-radius: 6px;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
-    .stButton > button[kind="primary"] {
-        background-color: #0056b3;
-        color: blue;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background-color: #004494;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-    }
-    div[data-testid="stExpander"] {
-        border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-</style>
-""", unsafe_allow_html=True)
+
 
 # --- СОСТОЯНИЕ СЕССИИ ---
 if "role" not in st.session_state:
