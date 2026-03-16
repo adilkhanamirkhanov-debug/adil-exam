@@ -2,14 +2,16 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from openai import OpenAI
+import io
 
-# --- 1. CONFIG (Добавили принудительное расширение меню) ---
+# --- 1. НАСТРОЙКИ СТРАНИЦЫ ---
 st.set_page_config(
     page_title="AI Exam Platform", 
     layout="wide", 
-    initial_sidebar_state="expanded"  # Это заставит меню открыться при загрузке
+    initial_sidebar_state="expanded"
 )
 
+# --- 2. ФУНКЦИЯ ЗАГРУЗКИ CSS ---
 def load_css(file_name):
     try:
         with open(file_name, "r", encoding="utf-8") as f:
@@ -19,29 +21,7 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 2. SIDEBAR MANAGER (Более агрессивный фикс) ---
-if "role" not in st.session_state: 
-    st.session_state.role = None
-
-# Если это студент — прячем всё. Если нет (Главная или Учитель) — показываем.
-if st.session_state.role == "Student":
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
-                display: none !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
-                display: flex !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. DATABASE ---
+# --- 3. ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ---
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
     c = conn.cursor()
@@ -52,14 +32,37 @@ def init_db():
 
 db_conn = init_db()
 
-# --- 4. SESSION STATE ---
-if "role" not in st.session_state: st.session_state.role = None
-if "current_exam" not in st.session_state: st.session_state.current_exam = None
+# --- 4. СОСТОЯНИЕ СЕССИИ ---
+if "role" not in st.session_state: 
+    st.session_state.role = None
+if "current_exam" not in st.session_state: 
+    st.session_state.current_exam = None
 
-# Запускаем управление сайдбаром
+# --- 5. УПРАВЛЕНИЕ САЙДБАРОМ (FIX NameError) ---
+def manage_sidebar():
+    if st.session_state.role == "Student":
+        # Полностью скрываем для студента
+        st.markdown("""
+            <style>
+                [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                    display: none !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+    else:
+        # Принудительно показываем для Главной и Учителя
+        st.markdown("""
+            <style>
+                [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                    display: flex !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+# ВЫЗЫВАЕМ ФУНКЦИЮ
 manage_sidebar()
 
-# --- 5. AI LOGIC ---
+# --- 6. ЛОГИКА AI ---
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=st.secrets["API_KEY"].strip(),
@@ -74,9 +77,9 @@ def grade_essay(title, desc, criteria, essay):
     )
     return response.choices[0].message.content
 
-# --- 6. NAVIGATION ---
+# --- 7. НАВИГАЦИЯ ---
 
-# A. LANDING PAGE
+# A. ГЛАВНОЕ МЕНЮ
 if st.session_state.role is None:
     with st.sidebar:
         st.markdown("### Teacher Access")
@@ -88,17 +91,13 @@ if st.session_state.role is None:
                 st.rerun()
             else:
                 st.error("Invalid Login")
-        st.markdown("---")
-        st.info("AI Exam Platform v2.0")
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         try: st.image("Ai.png", use_container_width=True)
         except: pass
         st.markdown("<h1 style='text-align: center;'>Examination Portal</h1>", unsafe_allow_html=True)
-        st.write("<p style='text-align: center;'>Enter your exam code to start</p>", unsafe_allow_html=True)
-        
-        access_code = st.text_input("Code", placeholder="EXAM-101", label_visibility="collapsed")
+        access_code = st.text_input("Enter Exam Code", placeholder="EXAM-101", label_visibility="collapsed")
         if st.button("Start Exam", type="primary", use_container_width=True):
             c = db_conn.cursor()
             c.execute("SELECT title, desc, criteria FROM exams WHERE code=?", (access_code,))
@@ -108,9 +107,9 @@ if st.session_state.role is None:
                 st.session_state.role = "Student"
                 st.rerun()
             else:
-                st.error("Wrong Code")
+                st.error("Exam code not found")
 
-# B. TEACHER DASHBOARD
+# B. ПАНЕЛЬ УЧИТЕЛЯ
 elif st.session_state.role == "Teacher":
     with st.sidebar:
         st.title("Teacher Admin")
@@ -143,7 +142,7 @@ elif st.session_state.role == "Teacher":
         if data:
             df = pd.DataFrame(data, columns=["Name", "Exam", "Essay", "Grade"])
             csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("📥 Download Excel (CSV)", csv, "results.csv", "text/csv")
+            st.download_button("📥 Download Results (CSV)", csv, "results.csv", "text/csv")
             for name, title, essay, grade in reversed(data):
                 with st.expander(f"{name} - {title}"):
                     st.write(f"**Essay:** {essay}")
@@ -151,7 +150,7 @@ elif st.session_state.role == "Teacher":
         else:
             st.info("No submissions yet")
 
-# C. STUDENT AREA
+# C. ЗОНА СТУДЕНТА
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
     st.title(f"Exam: {exam['title']}")
@@ -172,11 +171,11 @@ elif st.session_state.role == "Student":
                     c = db_conn.cursor()
                     c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
                     db_conn.commit()
-                    st.success("Done!")
+                    st.success("Work submitted and graded!")
                     st.markdown(grade)
             else:
                 st.warning("Fill name and essay!")
     with col_s2:
-        if st.button("Exit"):
+        if st.button("Exit to Main Menu"):
             st.session_state.role = None
             st.rerun()
