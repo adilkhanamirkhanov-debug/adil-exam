@@ -46,11 +46,11 @@ header[data-testid="stHeader"] {
 }
 
 h1, h2, h3, p, label, span {
-    color: #0a0a0a !important;
+    color: #ffffff !important;
 }
 /* ВЕСЬ САЙДБАР: Темный фон */
 [data-testid="stSidebar"] {
-    background-color: #0f051d !important; /* Очень темный фиолетовый */
+    background-color: #480e57 !important; /* Очень темный фиолетовый */
     border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -70,7 +70,7 @@ h1, h2, h3, p, label, span {
 [data-testid="stSidebar"] h3, 
 [data-testid="stSidebar"] p, 
 [data-testid="stSidebar"] label {
-    color: #0a0a0a !important;
+    color: #ffffff !important;
 }
 
 /* КНОПКА В САЙДБАРЕ */
