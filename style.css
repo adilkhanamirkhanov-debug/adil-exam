@@ -1,9 +1,8 @@
-/* ГЛАВНЫЙ ФОН */
+/* ОБЩИЕ СТИЛИ */
 .stApp {
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
 
-/* ТЕКСТОВЫЙ ЛОГОТИП */
 .logo-text {
     font-size: 52px !important;
     font-weight: 800 !important;
@@ -12,45 +11,30 @@
     -webkit-text-fill-color: transparent;
     text-align: center;
     margin-bottom: 5px;
-    letter-spacing: -1px;
 }
 
-/* ЦВЕТА ТЕКСТА */
 h1, h2, h3, p, span, label, .stMarkdown {
     color: #ffffff !important;
 }
 
-/* КНОПКИ И ЭФФЕКТ ПРИ НАВЕДЕНИИ (HOVER) */
+/* КНОПКИ И HOVER */
 .stButton>button {
     background-color: #6a11cb !important;
     color: white !important;
     border-radius: 12px !important;
-    border: none !important;
-    padding: 0.7rem 1.5rem !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
     width: 100%;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
 }
 
 .stButton>button:hover {
-    background-color: #ff4b4b !important; /* Цвет меняется на красный */
-    transform: translateY(-3px) !important; /* Кнопка приподнимается */
+    background-color: #ff4b4b !important;
+    transform: translateY(-3px) !important;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
-    color: white !important;
 }
 
-.stButton>button:active {
-    transform: translateY(0px) !important;
+/* СТИЛЬ САЙДБАРА (ЯВНЫЙ) */
+[data-testid="stSidebar"] {
+    background-color: rgba(26, 10, 51, 0.98) !important;
+    visibility: visible !important;
+    display: flex !important;
 }
-
-/* ИНПУТЫ (ПОЛЯ ВВОДА) */
-.stTextInput>div>div>input {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    color: white !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 10px !important;
-}
-
-/* СКРЫТИЕ СТАНДАРТНЫХ ЭЛЕМЕНТОВ */
-header {visibility: hidden;}
