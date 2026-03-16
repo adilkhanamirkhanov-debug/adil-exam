@@ -75,7 +75,7 @@ def get_submissions():
     return [{"name": r[0], "title": r[1], "essay": r[2], "grade": r[3]} for r in rows]
 
 # --- НАСТРОЙКА API ---
-API_KEY = "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"
+API_KEY = st.secrets["API_KEY"]
 MODEL_NAME = "openai/gpt-4o-mini" 
 
 @st.cache_resource
