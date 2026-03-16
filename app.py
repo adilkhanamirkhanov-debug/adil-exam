@@ -2,16 +2,11 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from openai import OpenAI
-import io
 
-# --- 1. НАСТРОЙКИ СТРАНИЦЫ ---
-st.set_page_config(
-    page_title="AI Exam Platform", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
+# --- 1. CONFIG ---
+st.set_page_config(page_title="AdilEduAssessment", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. ФУНКЦИЯ ЗАГРУЗКИ CSS ---
+# --- 2. LOAD EXTERNAL CSS ---
 def load_css(file_name):
     try:
         with open(file_name, "r", encoding="utf-8") as f:
@@ -21,7 +16,7 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 3. ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ---
+# --- 3. DATABASE ---
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
     c = conn.cursor()
@@ -32,37 +27,11 @@ def init_db():
 
 db_conn = init_db()
 
-# --- 4. СОСТОЯНИЕ СЕССИИ ---
-if "role" not in st.session_state: 
-    st.session_state.role = None
-if "current_exam" not in st.session_state: 
-    st.session_state.current_exam = None
+# --- 4. SESSION STATE ---
+if "role" not in st.session_state: st.session_state.role = None
+if "current_exam" not in st.session_state: st.session_state.current_exam = None
 
-# --- 5. УПРАВЛЕНИЕ САЙДБАРОМ (FIX NameError) ---
-def manage_sidebar():
-    if st.session_state.role == "Student":
-        # Полностью скрываем для студента
-        st.markdown("""
-            <style>
-                [data-testid="stSidebar"], [data-testid="collapsedControl"] {
-                    display: none !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-    else:
-        # Принудительно показываем для Главной и Учителя
-        st.markdown("""
-            <style>
-                [data-testid="stSidebar"], [data-testid="collapsedControl"] {
-                    display: flex !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-
-# ВЫЗЫВАЕМ ФУНКЦИЮ
-manage_sidebar()
-
-# --- 6. ЛОГИКА AI ---
+# --- 5. AI LOGIC ---
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=st.secrets["API_KEY"].strip(),
@@ -77,28 +46,27 @@ def grade_essay(title, desc, criteria, essay):
     )
     return response.choices[0].message.content
 
-# --- 7. НАВИГАЦИЯ ---
+# --- 6. NAVIGATION ---
 
-# A. ГЛАВНОЕ МЕНЮ
+# ГЛАВНЫЙ ЭКРАН
 if st.session_state.role is None:
     with st.sidebar:
-        st.markdown("### Teacher Access")
+        st.markdown("### Teacher Login")
         t_user = st.text_input("Username")
         t_pass = st.text_input("Password", type="password")
-        if st.button("Login as Teacher", use_container_width=True):
+        if st.button("Login"):
             if t_user == "admin" and t_pass == "12345":
                 st.session_state.role = "Teacher"
                 st.rerun()
-            else:
-                st.error("Invalid Login")
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        try: st.image("Ai.png", use_container_width=True)
-        except: pass
-        st.markdown("<h1 style='text-align: center;'>Examination Portal</h1>", unsafe_allow_html=True)
-        access_code = st.text_input("Enter Exam Code", placeholder="EXAM-101", label_visibility="collapsed")
-        if st.button("Start Exam", type="primary", use_container_width=True):
+        st.markdown("<p style='text-align: center; opacity: 0.7;'>Enter access code to start</p>", unsafe_allow_html=True)
+        access_code = st.text_input("Code", placeholder="EXAM-CODE", label_visibility="collapsed")
+        if st.button("Start Exam", type="primary"):
             c = db_conn.cursor()
             c.execute("SELECT title, desc, criteria FROM exams WHERE code=?", (access_code,))
             res = c.fetchone()
@@ -107,75 +75,58 @@ if st.session_state.role is None:
                 st.session_state.role = "Student"
                 st.rerun()
             else:
-                st.error("Exam code not found")
+                st.error("Code not found")
 
-# B. ПАНЕЛЬ УЧИТЕЛЯ
+# ПАНЕЛЬ УЧИТЕЛЯ
 elif st.session_state.role == "Teacher":
-    with st.sidebar:
-        st.title("Teacher Admin")
-        if st.button("Logout"):
-            st.session_state.role = None
-            st.rerun()
-
-    tab1, tab2 = st.tabs(["New Assignment", "Submissions"])
+    st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"role": None}))
+    st.markdown("## Teacher Dashboard")
     
+    tab1, tab2 = st.tabs(["Add Assignment", "View Results"])
     with tab1:
-        st.header("Create Assignment")
-        nt = st.text_input("Exam Title")
-        nd = st.text_area("Description")
-        nc = st.text_input("Access Code")
-        ncr = st.text_area("Grading Criteria")
-        if st.button("Save and Publish"):
-            try:
+        with st.form("add_ex"):
+            nt = st.text_input("Title")
+            nd = st.text_area("Task")
+            nc = st.text_input("Code")
+            ncr = st.text_area("Criteria")
+            if st.form_submit_button("Save Exam"):
                 c = db_conn.cursor()
-                c.execute("INSERT INTO exams VALUES (?,?,?,?)", (nc, nt, nd, ncr))
+                c.execute("INSERT OR REPLACE INTO exams VALUES (?,?,?,?)", (nc, nt, nd, ncr))
                 db_conn.commit()
-                st.success("Exam Published!")
-            except:
-                st.error("Code already exists")
-
+                st.success("Exam Saved!")
     with tab2:
-        st.header("Results")
         c = db_conn.cursor()
         c.execute("SELECT name, title, essay, grade FROM submissions")
         data = c.fetchall()
         if data:
             df = pd.DataFrame(data, columns=["Name", "Exam", "Essay", "Grade"])
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("📥 Download Results (CSV)", csv, "results.csv", "text/csv")
-            for name, title, essay, grade in reversed(data):
-                with st.expander(f"{name} - {title}"):
-                    st.write(f"**Essay:** {essay}")
-                    st.markdown(grade)
-        else:
-            st.info("No submissions yet")
+            st.download_button("Export CSV", df.to_csv(index=False).encode('utf-8-sig'), "results.csv")
+            for r in reversed(data):
+                with st.expander(f"{r[0]} - {r[1]}"):
+                    st.write(r[2])
+                    st.info(r[3])
 
-# C. ЗОНА СТУДЕНТА
+# СТУДЕНТ
 elif st.session_state.role == "Student":
+    st.markdown("<style>[data-testid='stSidebar'] {display:none !important;}</style>", unsafe_allow_html=True)
     exam = st.session_state.current_exam
-    st.title(f"Exam: {exam['title']}")
+    st.markdown(f'<p class="logo-text" style="font-size: 32px !important;">{exam["title"]}</p>', unsafe_allow_html=True)
     
-    with st.expander("Instruction"):
-        st.write(exam['desc'])
-        st.write(f"**Criteria:** {exam['criteria']}")
+    st.write(exam['desc'])
+    s_name = st.text_input("Your Name")
+    s_essay = st.text_area("Your Essay", height=350)
     
-    s_name = st.text_input("Full Name")
-    s_essay = st.text_area("Your Work", height=400)
+    if st.button("Submit Work", type="primary"):
+        if s_name and s_essay:
+            with st.spinner("AI is grading..."):
+                grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], s_essay)
+                c = db_conn.cursor()
+                c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
+                db_conn.commit()
+                st.success("Done!")
+                st.markdown(grade)
+        else: st.warning("Fill all fields")
     
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        if st.button("Submit Essay", type="primary"):
-            if s_name and s_essay:
-                with st.spinner("AI is checking..."):
-                    grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], s_essay)
-                    c = db_conn.cursor()
-                    c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
-                    db_conn.commit()
-                    st.success("Work submitted and graded!")
-                    st.markdown(grade)
-            else:
-                st.warning("Fill name and essay!")
-    with col_s2:
-        if st.button("Exit to Main Menu"):
-            st.session_state.role = None
-            st.rerun()
+    if st.button("Exit"):
+        st.session_state.role = None
+        st.rerun()
