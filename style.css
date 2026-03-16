@@ -33,3 +33,26 @@ html, body, [class*="css"] {
 
 /* Скрываем надпись "Made with Streamlit" в самом низу */
 footer {visibility: hidden;}
+/* --- НОВЫЙ ДИЗАЙН: ФИОЛЕТОВЫЙ ФОН --- */
+/* Меняем главный фон приложения на красивый градиент */
+.stApp {
+    background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
+}
+
+/* Делаем основные тексты белыми, чтобы читались на темном фоне */
+h1, h2, h3, p, span, label {
+    color: #ffffff !important;
+}
+
+/* Оставляем поля ввода (инпуты) светлыми, чтобы было удобно писать */
+.stTextInput>div>div>input, .stTextArea>div>div>textarea {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+}
+
+/* Убираем лишние рамки и фоны у боковой панели */
+[data-testid="stSidebar"] {
+    background-color: #1a0a33 !important;
+    border-right: 1px solid #4B0082 !important;
+}
