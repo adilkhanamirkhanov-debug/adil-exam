@@ -333,7 +333,7 @@ if st.session_state.role is None:
     with col2:
         try:
             # use_container_width делает картинку большой и адаптивной
-            st.image("logo.png", use_container_width=True) 
+            st.image("Ai.png", use_container_width=True) 
         except:
             pass
             
