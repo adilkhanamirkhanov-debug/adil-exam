@@ -1,0 +1,35 @@
+/* Подключаем красивый современный шрифт Roboto */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Roboto', sans-serif !important;
+}
+
+/* Красивые закругленные кнопки с анимацией при наведении */
+.stButton>button {
+    border-radius: 8px !important;
+    font-weight: bold !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+    border-color: #ff4b4b !important;
+    color: #ff4b4b !important;
+}
+
+/* Стили для полей ввода текста (эссе и имя) */
+.stTextInput>div>div>input, .stTextArea>div>div>textarea {
+    border-radius: 8px !important;
+    border: 1px solid #ddd !important;
+    padding: 10px !important;
+}
+
+.stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
+    border-color: #ff4b4b !important;
+    box-shadow: 0 0 8px rgba(255, 75, 75, 0.3) !important;
+}
+
+/* Скрываем надпись "Made with Streamlit" в самом низу */
+footer {visibility: hidden;}
