@@ -1,116 +1,53 @@
-/* Подключаем красивый современный шрифт Roboto */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Roboto', sans-serif !important;
-}
-
-/* Красивые закругленные кнопки с анимацией при наведении */
-.stButton>button {
-    border-radius: 8px !important;
-    font-weight: bold !important;
-    transition: all 0.3s ease !important;
-}
-
-.stButton>button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
-    border-color: #ff4b4b !important;
-    color: #ff4b4b !important;
-}
-
-/* Стили для полей ввода текста (эссе и имя) */
-.stTextInput>div>div>input, .stTextArea>div>div>textarea {
-    border-radius: 8px !important;
-    border: 1px solid #ddd !important;
-    padding: 10px !important;
-}
-
-.stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
-    border-color: #ff4b4b !important;
-    box-shadow: 0 0 8px rgba(255, 75, 75, 0.3) !important;
-}
-
-/* Скрываем надпись "Made with Streamlit" в самом низу */
-footer {visibility: hidden;}
-/* --- НОВЫЙ ДИЗАЙН: ФИОЛЕТОВЫЙ ФОН --- */
-/* Меняем главный фон приложения на красивый градиент */
+/* 1. ГЛАВНЫЙ ФОН И ТЕКСТ */
 .stApp {
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
 
-/* Делаем основные тексты белыми, чтобы читались на темном фоне */
-h1, h2, h3, p, span, label {
+/* Белый текст для всех заголовков и подписей */
+h1, h2, h3, p, span, label, .stMarkdown {
     color: #ffffff !important;
 }
 
-/* Оставляем поля ввода (инпуты) светлыми, чтобы было удобно писать */
-.stTextInput>div>div>input, .stTextArea>div>div>textarea {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: none !important;
-}
-
-/* Убираем лишние рамки и фоны у боковой панели */
-[data-testid="stSidebar"] {
-    background-color: #1a0a33 !important;
-    border-right: 1px solid #4B0082 !important;
-}
-/* --- УБИРАЕМ БЕЛУЮ ШАПКУ И ОТСТУПЫ --- */
-[data-testid="stHeader"] {
-    background-color: transparent !important;
-    display: none !important;
-}
-
-/* Уменьшаем огромный отступ сверху на главной странице */
-
-
-
-.block-container {
-    padding-top: 2rem !important; 
-    margin-top: 0 !important;
-}
-/* --- ОСНОВНОЙ ФОН И ТЕКСТ --- */
-.stApp {
-    background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
-}
-
-h1, h2, h3, p, span, label {
-    color: #ffffff !important;
-}
-
-/* --- СКРЫТИЕ ШАПКИ --- */
+/* 2. СКРЫТИЕ СТАНДАРТНОЙ ШАПКИ STREAMLIT */
 [data-testid="stHeader"] {
     display: none !important;
 }
 
-/* --- НАСТРОЙКА КНОПОК И HOVER --- */
+/* 3. ДИЗАЙН КНОПОК И ЭФФЕКТ HOVER */
 .stButton>button {
     background-color: #6a11cb !important;
     color: white !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     border: none !important;
-    transition: all 0.3s ease-in-out !important;
+    padding: 0.6rem 1.2rem !important;
+    transition: all 0.3s ease-in-out !important; /* Плавность */
     font-weight: 600 !important;
+    text-transform: none !important;
     width: 100%;
 }
 
 /* Эффект при наведении */
 .stButton>button:hover {
-    background-color: #ff4b4b !important; /* Меняется на розово-красный */
-    transform: translateY(-2px) !important;
+    background-color: #ff4b4b !important; /* Контрастный красный/розовый */
+    transform: translateY(-3px) !important; /* Приподнимается */
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* --- УМНОЕ СКРЫТИЕ БОКОВОГО МЕНЮ --- */
-/* Если роль студента активна, Streamlit добавляет атрибут, который мы поймаем */
-/* Но проще всего скрыть элементы управления сайдбаром, если мы хотим оставить его для учителя */
+/* Эффект при клике */
+.stButton>button:active {
+    transform: translateY(0px) !important;
+}
 
-section[data-testid="stSidebar"] {
-    background-color: #1a0a33 !important;
+/* 4. БОКОВАЯ ПАНЕЛЬ */
+[data-testid="stSidebar"] {
+    background-color: rgba(26, 10, 51, 0.95) !important;
     border-right: 1px solid #4B0082 !important;
 }
 
-/* Если вам нужно скрыть боковую панель именно у студента, 
-   лучше использовать логику внутри app.py через st.empty() или условия, 
-   но для простоты оставим её видимой для всех, пока не залогинились */
+/* 5. ПОЛЯ ВВОДА (Инпуты) */
+.stTextInput>div>div>input, .stTextArea>div>div>textarea {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    border: 1px solid #4B0082 !important;
+    border-radius: 8px !important;
+}
