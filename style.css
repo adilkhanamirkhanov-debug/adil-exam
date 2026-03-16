@@ -46,7 +46,7 @@ header[data-testid="stHeader"] {
 }
 
 h1, h2, h3, p, label, span {
-    color: black !important;
+    color: #0a0a0a !important;
 }
 /* ВЕСЬ САЙДБАР: Темный фон */
 [data-testid="stSidebar"] {
@@ -62,7 +62,7 @@ h1, h2, h3, p, label, span {
 /* ПОЛЯ ВВОДА В САЙДБАРЕ (Login/Password) */
 [data-testid="stSidebar"] .stTextInput>div>div>input {
     background-color: rgba(255, 255, 255, 0.05) !important;
-    color: #ffffff !important;
+    color: #0a0a0a !important;
     border: 1px solid rgba(106, 17, 203, 0.5) !important;
 }
 
@@ -70,7 +70,7 @@ h1, h2, h3, p, label, span {
 [data-testid="stSidebar"] h3, 
 [data-testid="stSidebar"] p, 
 [data-testid="stSidebar"] label {
-    color: #e0e0e0 !important;
+    color: #0a0a0a !important;
 }
 
 /* КНОПКА В САЙДБАРЕ */
@@ -80,8 +80,8 @@ h1, h2, h3, p, label, span {
 }
 /* ЦВЕТ ТЕКСТА ПРИ ВВОДЕ (ВЕЗДЕ: в центре и в сайдбаре) */
 input, textarea {
-    color: #ffffff !important; /* Текст, который пишет пользователь */
-    -webkit-text-fill-color: #ffffff !important;
+    color: #0a0a0a !important; /* Текст, который пишет пользователь */
+    -webkit-text-fill-color: #0a0a0a !important;
 }
 
 /* Цвет подсказок (Placeholder) */
@@ -101,5 +101,5 @@ input::placeholder, textarea::placeholder {
 
 /* Цвет текста в выпадающих списках и других элементах ввода */
 .stSelectbox div[data-baseweb="select"] > div {
-    color: white !important;
+    color: #0a0a0a !important;
 }
