@@ -414,14 +414,13 @@ elif st.session_state.role == "Student":
     # Жестко скрываем боковое меню и шапку сайта (Режим киоска)
     st.markdown("""
         <style>
-            /* Скрываем боковую панель */
-            [data-testid="stSidebar"] {display: none !important;}
-            /* Скрываем стрелочку открытия панели */
+            [data-testid="stSidebar"] {display: none !important; width: 0 !important;}
+            section[data-testid="stSidebar"] {display: none !important;}
             [data-testid="collapsedControl"] {display: none !important;}
-            /* Скрываем верхнюю полосу Streamlit (Deploy и меню) */
-            header {display: none !important;}
-            /* Немного поднимаем контент наверх, так как шапки больше нет */
-            .block-container {padding-top: 2rem !important;}
+            header {display: none !important; visibility: hidden !important;}
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
+            .block-container {padding-top: 1rem !important;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -432,11 +431,8 @@ elif st.session_state.role == "Student":
         except:
             pass
     with col_head2_s:
-        # Просто заголовок на странице
         st.title(L['sidebar_student_title'])
 
-    # Кнопку "Выйти" мы студенту больше не показываем. Он не сможет выйти.
-    
     exam = st.session_state.current_exam
     st.header(L['student_exam_welcome'].format(exam_title=exam['title']))
     
@@ -446,28 +442,65 @@ elif st.session_state.role == "Student":
         
     st.markdown("---")
     
-    student_name = st.text_input(L['student_name_label'])
-    essay_text = st.text_area(L['task_label'], height=300)
-    
-    st.markdown("---")
-    
-    if st.button(L['submit_work_btn'], type="primary", use_container_width=True):
-        if student_name and essay_text:
-            with st.spinner(L['submission_spinner']):
-                result = grade_essay(exam['title'], exam['desc'], exam['criteria'], essay_text)
-                
-                # Сохраняем в базу данных навсегда
-                add_submission(student_name, exam['title'], essay_text, result)
-                
-                grade_val = "0"
-                try:
-                    parts = result.split(' / 100')
-                    grade_val = parts[0].split(': ')[-1]
-                except:
-                    pass
-                
-                st.success(L['submission_success'])
-                with st.expander(L['grading_header'].format(grade=grade_val), expanded=True):
-                    st.markdown(result)
-        else:
-            st.warning(L['submission_warning'])
+    # Инициализация состояния сдачи работы для студента
+    if "student_submitted" not in st.session_state:
+        st.session_state.student_submitted = False
+        st.session_state.student_result = ""
+        st.session_state.student_name_saved = ""
+
+    # Если студент ЕЩЕ НЕ сдал работу — показываем поля ввода
+    if not st.session_state.student_submitted:
+        student_name = st.text_input(L['student_name_label'])
+        essay_text = st.text_area(L['task_label'], height=300)
+        
+        st.markdown("---")
+        
+        if st.button(L['submit_work_btn'], type="primary", use_container_width=True):
+            if student_name and essay_text:
+                with st.spinner(L['submission_spinner']):
+                    result = grade_essay(exam['title'], exam['desc'], exam['criteria'], essay_text)
+                    
+                    # Сохраняем в базу данных навсегда
+                    add_submission(student_name, exam['title'], essay_text, result)
+                    
+                    # Сохраняем результаты в сессию, чтобы они не пропали
+                    st.session_state.student_result = result
+                    st.session_state.student_name_saved = student_name
+                    st.session_state.student_submitted = True
+                    st.rerun() # Перезагружаем страницу, чтобы показать результаты
+            else:
+                st.warning(L['submission_warning'])
+
+    # Если студент УЖЕ сдал работу — показываем результат и кнопки выхода/скачивания
+    else:
+        st.success(L['submission_success'])
+        
+        with st.expander("Ваш результат и отзыв ИИ", expanded=True):
+            st.markdown(st.session_state.student_result)
+            
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        # Кнопка 1: Скачать результат в TXT
+        with col_btn1:
+            # Формируем текст для скачивания
+            feedback_file_content = f"Студент: {st.session_state.student_name_saved}\nЭкзамен: {exam['title']}\n\n=== РЕЗУЛЬТАТ И ОТЗЫВ ИИ ===\n{st.session_state.student_result}"
+            
+            st.download_button(
+                label="📥 Скачать Feedback (TXT)",
+                data=feedback_file_content,
+                file_name=f"Result_{st.session_state.student_name_saved}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+            
+        # Кнопка 2: Выход в главное меню
+        with col_btn2:
+            if st.button("🚪 Выйти в главное меню", use_container_width=True):
+                # Очищаем сессию и возвращаем на стартовый экран
+                st.session_state.student_submitted = False
+                st.session_state.student_result = ""
+                st.session_state.student_name_saved = ""
+                st.session_state.role = None
+                st.session_state.current_exam = None
+                st.rerun()
