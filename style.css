@@ -1,9 +1,9 @@
-/* ГЛАВНЫЙ ФОН */
+/* 1. ГЛАВНЫЙ ФОН */
 .stApp {
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
 
-/* ТЕКСТОВЫЙ ЛОГОТИП */
+/* 2. ТЕКСТОВЫЙ ЛОГОТИП */
 .logo-text {
     font-size: 52px !important;
     font-weight: 800 !important;
@@ -11,26 +11,28 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    margin-top: 20px;
+    margin-top: 40px; /* Еще чуть ниже */
 }
 
-/* КНОПКА ОТКРЫТИЯ САЙДБАРА (ФЛАЖОК) */
-/* Смещаем кнопку чуть ниже, чтобы она не «прилипала» к углу */
+/* 3. КНОПКА САЙДБАРА (ФЛАЖОК) */
+/* Делаем ее заметной и опускаем ниже хедера */
 button[kind="header"] {
-    top: 15px !important;
-    left: 10px !important;
-    background-color: rgba(106, 17, 203, 0.3) !important; /* Легкая подложка */
-    border-radius: 50% !important;
+    top: 25px !important; /* Опускаем от верхнего края */
+    left: 20px !important;
+    background-color: #6a11cb !important; /* Яркий цвет */
+    color: white !important;
+    border-radius: 8px !important;
+    padding: 5px !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
 }
 
-/* СКРЫВАЕМ БЕЛЫЙ ХЕДЕР ТАК, ЧТОБЫ ОН НЕ УЛЕТАЛ */
+/* 4. ПОЛНОЕ ЗАКРАШИВАНИЕ ХЕДЕРА */
 header[data-testid="stHeader"] {
-    background-color: transparent !important; /* Делаем прозрачным */
-    border-bottom: none !important;
-    z-index: 0 !important; /* Уводим на задний план */
+    background-color: transparent !important;
+    border: none !important;
 }
 
-/* КНОПКИ И HOVER */
+/* 5. КНОПКИ И ПОЛЯ */
 .stButton>button {
     background-color: #6a11cb !important;
     color: white !important;
@@ -43,7 +45,6 @@ header[data-testid="stHeader"] {
     transform: translateY(-3px) !important;
 }
 
-/* ТЕКСТЫ */
-h1, h2, h3, p, label, .stMarkdown {
+h1, h2, h3, p, label, span {
     color: #ffffff !important;
 }
