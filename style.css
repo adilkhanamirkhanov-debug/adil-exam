@@ -70,3 +70,47 @@ h1, h2, h3, p, span, label {
     padding-top: 2rem !important; 
     margin-top: 0 !important;
 }
+/* --- ОСНОВНОЙ ФОН И ТЕКСТ --- */
+.stApp {
+    background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
+}
+
+h1, h2, h3, p, span, label {
+    color: #ffffff !important;
+}
+
+/* --- СКРЫТИЕ ШАПКИ --- */
+[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* --- НАСТРОЙКА КНОПОК И HOVER --- */
+.stButton>button {
+    background-color: #6a11cb !important;
+    color: white !important;
+    border-radius: 10px !important;
+    border: none !important;
+    transition: all 0.3s ease-in-out !important;
+    font-weight: 600 !important;
+    width: 100%;
+}
+
+/* Эффект при наведении */
+.stButton>button:hover {
+    background-color: #ff4b4b !important; /* Меняется на розово-красный */
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* --- УМНОЕ СКРЫТИЕ БОКОВОГО МЕНЮ --- */
+/* Если роль студента активна, Streamlit добавляет атрибут, который мы поймаем */
+/* Но проще всего скрыть элементы управления сайдбаром, если мы хотим оставить его для учителя */
+
+section[data-testid="stSidebar"] {
+    background-color: #1a0a33 !important;
+    border-right: 1px solid #4B0082 !important;
+}
+
+/* Если вам нужно скрыть боковую панель именно у студента, 
+   лучше использовать логику внутри app.py через st.empty() или условия, 
+   но для простоты оставим её видимой для всех, пока не залогинились */
