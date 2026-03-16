@@ -3,8 +3,12 @@ import sqlite3
 import pandas as pd
 from openai import OpenAI
 
-# --- 1. CONFIG & CSS ---
-st.set_page_config(page_title="AI Exam Platform", layout="wide")
+# --- 1. CONFIG (Добавили принудительное расширение меню) ---
+st.set_page_config(
+    page_title="AI Exam Platform", 
+    layout="wide", 
+    initial_sidebar_state="expanded"  # Это заставит меню открыться при загрузке
+)
 
 def load_css(file_name):
     try:
@@ -15,24 +19,27 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 2. SIDEBAR MANAGER (FIX) ---
-def manage_sidebar():
-    if st.session_state.get("role") == "Student":
-        # Скрываем полностью
-        st.markdown("""
-            <style>
-                [data-testid="stSidebar"] { display: none !important; }
-                [data-testid="collapsedControl"] { display: none !important; }
-            </style>
-        """, unsafe_allow_html=True)
-    else:
-        # Принудительно показываем для Учителя и Главного меню
-        st.markdown("""
-            <style>
-                [data-testid="stSidebar"] { display: flex !important; }
-                [data-testid="collapsedControl"] { display: flex !important; }
-            </style>
-        """, unsafe_allow_html=True)
+# --- 2. SIDEBAR MANAGER (Более агрессивный фикс) ---
+if "role" not in st.session_state: 
+    st.session_state.role = None
+
+# Если это студент — прячем всё. Если нет (Главная или Учитель) — показываем.
+if st.session_state.role == "Student":
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                display: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+                display: flex !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
 # --- 3. DATABASE ---
 def init_db():
