@@ -190,7 +190,7 @@ st.sidebar.selectbox(
 )
 st.sidebar.markdown("---")
 
-L = LANGUAGES[st.session_state.lang]
+L = translations[st.session_state.lang]
 
 # --- ФУНКЦИИ ИИ ---
 def generate_criteria(task_description):
