@@ -3,12 +3,11 @@
     background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
 }
 
-/* Белый текст для всех заголовков и подписей */
 h1, h2, h3, p, span, label, .stMarkdown {
     color: #ffffff !important;
 }
 
-/* 2. СКРЫТИЕ СТАНДАРТНОЙ ШАПКИ STREAMLIT */
+/* 2. СКРЫТИЕ БЕЛОЙ ШАПКИ (Header) */
 [data-testid="stHeader"] {
     display: none !important;
 }
@@ -20,34 +19,26 @@ h1, h2, h3, p, span, label, .stMarkdown {
     border-radius: 12px !important;
     border: none !important;
     padding: 0.6rem 1.2rem !important;
-    transition: all 0.3s ease-in-out !important; /* Плавность */
+    transition: all 0.3s ease-in-out !important;
     font-weight: 600 !important;
-    text-transform: none !important;
     width: 100%;
 }
 
-/* Эффект при наведении */
 .stButton>button:hover {
-    background-color: #ff4b4b !important; /* Контрастный красный/розовый */
-    transform: translateY(-3px) !important; /* Приподнимается */
+    background-color: #ff4b4b !important;
+    transform: translateY(-3px) !important;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Эффект при клике */
-.stButton>button:active {
-    transform: translateY(0px) !important;
-}
-
-/* 4. БОКОВАЯ ПАНЕЛЬ */
+/* 4. БОКОВАЯ ПАНЕЛЬ (Цвет) */
 [data-testid="stSidebar"] {
-    background-color: rgba(26, 10, 51, 0.95) !important;
+    background-color: rgba(26, 10, 51, 0.98) !important;
     border-right: 1px solid #4B0082 !important;
 }
 
-/* 5. ПОЛЯ ВВОДА (Инпуты) */
+/* 5. ПОЛЯ ВВОДА */
 .stTextInput>div>div>input, .stTextArea>div>div>textarea {
-    background-color: rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
     color: white !important;
     border: 1px solid #4B0082 !important;
-    border-radius: 8px !important;
 }
