@@ -20,12 +20,12 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 3. SIDEBAR STYLING (FIX INDENTATION ERROR) ---
+# --- 3. SIDEBAR STYLING (RELIABLE FIX) ---
 if "role" not in st.session_state:
     st.session_state.role = None
 
 if st.session_state.role != "Student":
-    # Принудительно показываем для Учителя и Меню
+    # Показываем флажок и сайдбар для учителя
     st.markdown("""
 <style>
     section[data-testid="stSidebar"] {
@@ -34,17 +34,15 @@ if st.session_state.role != "Student":
     }
     [data-testid="collapsedControl"] {
         display: flex !important;
+        top: 20px !important; /* Смещаем флажок вниз */
     }
 </style>
 """, unsafe_allow_html=True)
 else:
-    # Принудительно скрываем для Студента
+    # Скрываем всё для студента
     st.markdown("""
 <style>
-    section[data-testid="stSidebar"] {
-        display: none !important;
-    }
-    [data-testid="collapsedControl"] {
+    section[data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
 </style>
