@@ -1,3 +1,53 @@
+/* 1. ГЛАВНЫЙ ФОН */
+.stApp {
+    background: linear-gradient(135deg, #2b1055 0%, #1a0a33 100%) !important;
+}
+
+/* 2. ТЕКСТОВЫЙ ЛОГОТИП */
+.logo-text {
+    font-size: 52px !important;
+    font-weight: 800 !important;
+    background: linear-gradient(to right, #a18cd1 0%, #fbc2eb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-top: 40px; /* Еще чуть ниже */
+}
+
+/* 3. КНОПКА САЙДБАРА (ФЛАЖОК) */
+/* Делаем ее заметной и опускаем ниже хедера */
+button[kind="header"] {
+    top: 25px !important; /* Опускаем от верхнего края */
+    left: 20px !important;
+    background-color: #6a11cb !important; /* Яркий цвет */
+    color: white !important;
+    border-radius: 8px !important;
+    padding: 5px !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+}
+
+/* 4. ПОЛНОЕ ЗАКРАШИВАНИЕ ХЕДЕРА */
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+    border: none !important;
+}
+
+/* 5. КНОПКИ И ПОЛЯ */
+.stButton>button {
+    background-color: #6a11cb !important;
+    color: white !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton>button:hover {
+    background-color: #ff4b4b !important;
+    transform: translateY(-3px) !important;
+}
+
+h1, h2, h3, p, label, span {
+    color: #ffffff !important;
+}
 /* ВЕСЬ САЙДБАР: Темный фон */
 [data-testid="stSidebar"] {
     background-color: #0f051d !important; /* Очень темный фиолетовый */
