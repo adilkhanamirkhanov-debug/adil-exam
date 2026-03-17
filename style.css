@@ -147,3 +147,25 @@ button[kind^="secondary"]:hover {
 [data-testid="stExpanderDetails"] * {
     color: #e0e0e0 !important;
 }
+/* СТИЛИ ДЛЯ ТАБЛИЦ ИЗ WORD */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+th, td {
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 10px;
+    text-align: left;
+    color: #e0e0e0;
+}
+th {
+    background-color: rgba(255, 255, 255, 0.05);
+    font-weight: bold;
+}
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
