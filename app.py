@@ -4,7 +4,8 @@ import pandas as pd
 from openai import OpenAI
 import random
 import string
-import docx
+import mammoth 
+from streamlit_quill import st_quill
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -48,13 +49,14 @@ def generate_random_code(prefix="EXAM"):
     chars = string.ascii_uppercase + string.digits
     return f"{prefix}-" + "".join(random.choices(chars, k=5))
 
-# ЧТЕНИЕ ФАЙЛОВ
+# ЧТЕНИЕ ФАЙЛОВ (Теперь с поддержкой картинок и таблиц через mammoth)
 def read_file(uploaded_file):
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.docx'):
-                doc = docx.Document(uploaded_file)
-                return "\n".join([para.text for para in doc.paragraphs])
+                # Конвертируем DOCX в HTML с сохранением форматирования
+                result = mammoth.convert_to_html(uploaded_file)
+                return result.value
             else:
                 return uploaded_file.getvalue().decode("utf-8")
         except Exception as e:
@@ -84,12 +86,12 @@ def grade_essay(title, desc, criteria, strictness, essay):
     
     CRITICAL INSTRUCTION 2: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'. If the student wrote in Russian, reply in Russian. If Kazakh, reply in Kazakh. If English, reply in English.
     
-    Student's Work: 
+    Student's Work (contains HTML formatting, evaluate the text content and logic): 
     {essay}
     
     Format: 
-    ### Grade: [X]/100 (Estimate the MYP level and convert to 100-point scale)
-    ### Feedback: [Detailed breakdown analyzing the relevant MYP Criteria A, B, C, D in the student's language]
+    ### Grade: [X]/100 
+    ### Feedback: [Detailed breakdown analyzing the relevant criteria in the student's language]
     """
     response = client.chat.completions.create(
         model="openai/gpt-4o-mini",
@@ -112,7 +114,7 @@ if st.session_state.role is None:
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">Adii_Exam</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
@@ -143,10 +145,10 @@ elif st.session_state.role == "Teacher":
             st.rerun()
 
     if menu_selection == "Быстрые задачи":
-        st.header("Быстрые задачи (Базовый вариант)")
+        st.header("Быстрые задачи ")
         with st.form("quick_exam"):
             nt = st.text_input("Название экзамена")
-            nd = st.text_area("Описание задачи")
+            nd = st.text_area("Описание задачи (Поддерживает HTML)", help="Можно использовать базовые теги <b>жирный</b>, <i>курсив</i>")
             
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
@@ -195,7 +197,7 @@ elif st.session_state.role == "Teacher":
             "Физкультура и здоровье (PHE)"
         ])
         
-        task_file = st.file_uploader("Загрузить файл с условием (.docx, .txt)", type=["docx", "txt"])
+        task_file = st.file_uploader("Загрузить файл с условием (.docx с картинками/таблицами или .txt)", type=["docx", "txt"])
         task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
         
         st.markdown("### 2. Дополнительные критерии (опционально)")
@@ -206,9 +208,11 @@ elif st.session_state.role == "Teacher":
 
         if st.button("Опубликовать MYP задачу", type="primary"):
             if nt and nc:
-                final_desc = read_file(task_file) + "\n\nВопросы:\n" + task_questions
+                desc_content = read_file(task_file)
+                # Оборачиваем вопросы в HTML для красивого отображения вместе с документом
+                questions_html = f"<br><h3>Дополнительные вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
+                final_desc = desc_content + questions_html
                 
-                # Вшиваем выбранный предмет прямо в текст критериев для ИИ
                 subject_prefix = f"[ОФИЦИАЛЬНЫЙ ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
                 final_crit = subject_prefix + read_file(crit_file)
                 
@@ -236,7 +240,9 @@ elif st.session_state.role == "Teacher":
             st.download_button("Скачать CSV", df.to_csv(index=False).encode('utf-8-sig'), "results.csv", type="primary")
             for r in reversed(data):
                 with st.expander(f"{r[0]} — {r[1]}"):
-                    st.write(f"**Ответ:**\n{r[2]}")
+                    # Текст ответа выводится через HTML, так как студент писал в редакторе
+                    st.markdown("**Ответ:**", unsafe_allow_html=True)
+                    st.markdown(r[2], unsafe_allow_html=True)
                     st.info(f"**Оценка ИИ:**\n{r[3]}")
         else:
             st.info("Пока нет ни одной сданной работы.")
@@ -247,15 +253,20 @@ elif st.session_state.role == "Student":
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important;">{exam["title"]}</p>', unsafe_allow_html=True)
     
     with st.expander("Показать условие задачи", expanded=True):
-        st.write(exam['desc'])
+        # Отрисовка HTML, полученного из Word (включая картинки и таблицы)
+        st.markdown(exam['desc'], unsafe_allow_html=True)
         
     s_name = st.text_input("Ваше полное имя")
-    s_essay = st.text_area("Ваш ответ / Эссе", height=350)
+    
+    st.markdown("### Ваш ответ")
+    # Новый продвинутый текстовый редактор вместо обычной текстовой зоны
+    s_essay = st_quill(placeholder="Напишите ваш ответ здесь. Вы можете менять шрифт, цвет и структуру текста...", html=True)
     
     col_bt1, col_bt2 = st.columns(2)
     with col_bt1:
         if st.button("Отправить работу", type="primary"):
-            if s_name and s_essay:
+            # Проверяем, что эссе не пустое (пустой редактор выдает пустые теги <p><br></p>)
+            if s_name and len(s_essay.replace("<p><br></p>", "").strip()) > 0:
                 with st.spinner("AI анализирует ваш ответ..."):
                     grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay)
                     c = db_conn.cursor()
