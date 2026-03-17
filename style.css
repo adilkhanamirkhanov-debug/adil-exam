@@ -131,3 +131,19 @@ button[kind^="secondary"]:hover {
     background-color: #d43c3c !important; 
     transform: translateY(-3px) !important;
 }
+/* СТИЛИ ДЛЯ БЛОКОВ С ОТЗЫВАМИ И УВЕДОМЛЕНИЯМИ (st.info, st.success) */
+[data-testid="stAlert"] {
+    background-color: rgba(255, 255, 255, 0.05) !important; /* Полупрозрачный темный фон */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+}
+
+/* Цвет текста внутри этих блоков делаем бело-серым */
+[data-testid="stAlert"] * {
+    color: #e0e0e0 !important; 
+}
+
+/* Цвет текста внутри раскрывающихся списков (Expander в кабинете учителя) */
+[data-testid="stExpanderDetails"] * {
+    color: #e0e0e0 !important;
+}
