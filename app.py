@@ -4,10 +4,11 @@ import pandas as pd
 from openai import OpenAI
 import random
 import string
+import docx  # Новая библиотека для чтения Word
 
 # --- 1. CONFIG ---
 st.set_page_config(
-    page_title="AdilExam", 
+    page_title="AdilEduAssessment", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
@@ -47,13 +48,19 @@ def generate_random_code(prefix="EXAM"):
     chars = string.ascii_uppercase + string.digits
     return f"{prefix}-" + "".join(random.choices(chars, k=5))
 
-# ЧТЕНИЕ ФАЙЛОВ
+# ЧТЕНИЕ ФАЙЛОВ (Обновлено для поддержки DOCX)
 def read_file(uploaded_file):
     if uploaded_file is not None:
         try:
-            return uploaded_file.getvalue().decode("utf-8")
-        except:
-            return "Ошибка чтения файла. Пожалуйста, используйте текстовые форматы (.txt)."
+            # Если это файл Word
+            if uploaded_file.name.endswith('.docx'):
+                doc = docx.Document(uploaded_file)
+                return "\n".join([para.text for para in doc.paragraphs])
+            # Если это обычный текстовый файл (на всякий случай оставил поддержку)
+            else:
+                return uploaded_file.getvalue().decode("utf-8")
+        except Exception as e:
+            return f"Ошибка чтения файла. Убедитесь, что это не поврежденный .docx файл."
     return ""
 
 # --- 5. AI LOGIC ---
@@ -90,6 +97,7 @@ def grade_essay(title, desc, criteria, strictness, essay):
         temperature=0.3
     )
     return response.choices[0].message.content
+
 # --- 6. NAVIGATION ---
 
 # ГЛАВНЫЙ ЭКРАН (ВХОД)
@@ -104,7 +112,7 @@ if st.session_state.role is None:
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown('<p class="logo-text">AdilExam</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
@@ -135,7 +143,7 @@ elif st.session_state.role == "Teacher":
             st.rerun()
 
     if menu_selection == "Быстрые задачи":
-        st.header("Быстрые задачи ")
+        st.header("Быстрые задачи (Базовый вариант)")
         with st.form("quick_exam"):
             nt = st.text_input("Название экзамена")
             nd = st.text_area("Описание задачи")
@@ -161,7 +169,7 @@ elif st.session_state.role == "Teacher":
                     st.warning("Укажите название и код доступа.")
 
     elif menu_selection == "MYP задачи":
-        st.header("MYP задачи ")
+        st.header("MYP задачи (Продвинутый уровень)")
         
         nt = st.text_input("Название MYP Задачи")
         
@@ -170,16 +178,18 @@ elif st.session_state.role == "Teacher":
             nc = st.text_input("Код доступа MYP", value=st.session_state.gen_code)
         with col_c2:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Сгенерировать MYP-код"):
+            if st.button("Сгенерировать MYP-код", type="secondary"):
                 st.session_state.gen_code = generate_random_code("MYP")
                 st.rerun()
 
         st.markdown("### 1. Условие задачи")
-        task_file = st.file_uploader("Загрузить файл с условием (.docx)", type=["docx"])
+        # Обновлено: теперь принимает docx
+        task_file = st.file_uploader("Загрузить файл с условием (.docx, .txt)", type=["docx", "txt"])
         task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
         
         st.markdown("### 2. Критерии оценивания")
-        crit_file = st.file_uploader("Загрузить рубрику/критерии (.docx)", type=["docx"])
+        # Обновлено: теперь принимает docx
+        crit_file = st.file_uploader("Загрузить рубрику/критерии (.docx, .txt)", type=["docx", "txt"])
         
         st.markdown("### 3. Настройки ИИ")
         strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5, help="1 = Мягко, 10 = Очень строго")
