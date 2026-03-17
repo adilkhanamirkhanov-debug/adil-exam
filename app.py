@@ -49,12 +49,11 @@ def generate_random_code(prefix="EXAM"):
     chars = string.ascii_uppercase + string.digits
     return f"{prefix}-" + "".join(random.choices(chars, k=5))
 
-# ЧТЕНИЕ ФАЙЛОВ (Теперь с поддержкой картинок и таблиц через mammoth)
+# ЧТЕНИЕ ФАЙЛОВ
 def read_file(uploaded_file):
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.docx'):
-                # Конвертируем DOCX в HTML с сохранением форматирования
                 result = mammoth.convert_to_html(uploaded_file)
                 return result.value
             else:
@@ -63,18 +62,40 @@ def read_file(uploaded_file):
             return "Ошибка чтения файла. Убедитесь, что это не поврежденный файл."
     return ""
 
-# --- 5. AI LOGIC ---
+# --- 5. AI LOGIC (РАЗДЕЛЕНИЕ MYP И СТАНДАРТА) ---
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=st.secrets["API_KEY"].strip(),
 )
 
-def grade_essay(title, desc, criteria, strictness, essay):
+def grade_essay(title, desc, criteria, strictness, essay, exam_type):
     strictness_guide = "Be balanced and fair."
     if strictness > 7:
         strictness_guide = "Grade VERY strictly. Deduct points for any minor logical, grammatical, or structural mistakes. Be a tough grader."
     elif strictness < 4:
         strictness_guide = "Grade leniently and encouragingly. Focus on the main ideas and forgive minor mistakes."
+
+    # ЖЕСТКОЕ РАЗДЕЛЕНИЕ ПРОМПТОВ В ЗАВИСИМОСТИ ОТ ТИПА ЭКЗАМЕНА
+    if exam_type == "MYP":
+        system_instruction = """
+        CRITICAL INSTRUCTION 1: This is an official IB MYP Assessment. You MUST STRICTLY apply the IB MYP Assessment Criteria (A, B, C, D) for the given subject. 
+        Evaluate each relevant criterion on a scale of 1 to 8. 
+        Provide a final overall IB MYP grade on a scale of 1 to 7. 
+        DO NOT use a 100-point scale under any circumstances.
+        """
+        format_instruction = """
+        Format: 
+        ### Итоговая оценка MYP: [Итоговый балл 1-7]
+        ### Баллы по критериям: [Критерий A: x/8, Критерий B: x/8, и т.д.]
+        ### Отзыв: [Детальный анализ ответа по каждому критерию в соответствии с рубрикой MYP]
+        """
+    else:
+        system_instruction = "CRITICAL INSTRUCTION 1: Evaluate the response on a standard 100-point scale based on the provided criteria."
+        format_instruction = """
+        Format: 
+        ### Оценка: [X]/100 
+        ### Отзыв: [Детальный анализ ответа]
+        """
 
     prompt = f"""
     Grade this response for the exam: '{title}'.
@@ -82,17 +103,16 @@ def grade_essay(title, desc, criteria, strictness, essay):
     Grading Criteria and Context: {criteria}
     Strictness Level (1-10): {strictness}. {strictness_guide}
     
-    CRITICAL INSTRUCTION 1: If an IB MYP Subject (e.g., Sciences, Individuals and Societies, Mathematics) is specified in the Criteria context, you MUST apply the official IB MYP Assessment Criteria (A, B, C, D) specific to that EXACT subject group. Structure your feedback around those specific MYP strands.
+    {system_instruction}
     
-    CRITICAL INSTRUCTION 2: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'. If the student wrote in Russian, reply in Russian. If Kazakh, reply in Kazakh. If English, reply in English.
+    CRITICAL INSTRUCTION 2: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'.
     
-    Student's Work (contains HTML formatting, evaluate the text content and logic): 
+    Student's Work: 
     {essay}
     
-    Format: 
-    ### Grade: [X]/100 
-    ### Feedback: [Detailed breakdown analyzing the relevant criteria in the student's language]
+    {format_instruction}
     """
+    
     response = client.chat.completions.create(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
@@ -114,25 +134,36 @@ if st.session_state.role is None:
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown('<p class="logo-text">Adii_Exam</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<p style='text-align: center; opacity: 0.7;'>Enter access code to start</p>", unsafe_allow_html=True)
-        access_code = st.text_input("Code", placeholder="EXAM-CODE", label_visibility="collapsed")
-        if st.button("Start Exam", type="primary"):
+        st.markdown("<p style='text-align: center; opacity: 0.7;'>Выберите формат сдачи и введите код доступа</p>", unsafe_allow_html=True)
+        
+        # ВЫБОР РЕЖИМА СТУДЕНТОМ
+        student_mode = st.radio("Режим экзамена:", ["Стандартный экзамен", "Экзамен MYP"], horizontal=True)
+        access_code = st.text_input("Код", placeholder="Например: MYP-1A2B3", label_visibility="collapsed")
+        
+        if st.button("Начать экзамен", type="primary"):
             c = db_conn.cursor()
             c.execute("SELECT type, title, desc, criteria, strictness FROM exams_v2 WHERE code=?", (access_code,))
             res = c.fetchone()
             if res:
-                st.session_state.current_exam = {
-                    "type": res[0], "title": res[1], "desc": res[2], 
-                    "criteria": res[3], "strictness": res[4]
-                }
-                st.session_state.role = "Student"
-                st.rerun()
+                db_type = res[0]
+                selected_type = "Quick" if student_mode == "Стандартный экзамен" else "MYP"
+                
+                # ПРОВЕРКА СООТВЕТСТВИЯ КОДА И РЕЖИМА
+                if db_type != selected_type:
+                    st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}', а вы выбрали '{selected_type}'. Переключите режим сверху.")
+                else:
+                    st.session_state.current_exam = {
+                        "type": res[0], "title": res[1], "desc": res[2], 
+                        "criteria": res[3], "strictness": res[4]
+                    }
+                    st.session_state.role = "Student"
+                    st.rerun()
             else:
-                st.error("Code not found or invalid.")
+                st.error("Код не найден или введен неверно.")
 
 # ПАНЕЛЬ УЧИТЕЛЯ (КАБИНЕТ)
 elif st.session_state.role == "Teacher":
@@ -145,10 +176,10 @@ elif st.session_state.role == "Teacher":
             st.rerun()
 
     if menu_selection == "Быстрые задачи":
-        st.header("Быстрые задачи ")
+        st.header("Быстрые задачи (Базовый вариант)")
         with st.form("quick_exam"):
             nt = st.text_input("Название экзамена")
-            nd = st.text_area("Описание задачи (Поддерживает HTML)", help="Можно использовать базовые теги <b>жирный</b>, <i>курсив</i>")
+            nd = st.text_area("Описание задачи (Поддерживает HTML)")
             
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
@@ -171,7 +202,7 @@ elif st.session_state.role == "Teacher":
                     st.warning("Укажите название и код доступа.")
 
     elif menu_selection == "MYP задачи":
-        st.header("MYP задачи ")
+        st.header("MYP задачи (Продвинутый уровень)")
         
         nt = st.text_input("Название MYP Задачи")
         
@@ -197,19 +228,18 @@ elif st.session_state.role == "Teacher":
             "Физкультура и здоровье (PHE)"
         ])
         
-        task_file = st.file_uploader("Загрузить файл с условием (.docx с картинками/таблицами или .txt)", type=["docx", "txt"])
+        task_file = st.file_uploader("Загрузить файл с условием (.docx или .txt)", type=["docx", "txt"])
         task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
         
         st.markdown("### 2. Дополнительные критерии (опционально)")
         crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
         
         st.markdown("### 3. Настройки ИИ")
-        strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5, help="1 = Мягко, 10 = Очень строго")
+        strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
 
         if st.button("Опубликовать MYP задачу", type="primary"):
             if nt and nc:
                 desc_content = read_file(task_file)
-                # Оборачиваем вопросы в HTML для красивого отображения вместе с документом
                 questions_html = f"<br><h3>Дополнительные вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
                 final_desc = desc_content + questions_html
                 
@@ -240,7 +270,6 @@ elif st.session_state.role == "Teacher":
             st.download_button("Скачать CSV", df.to_csv(index=False).encode('utf-8-sig'), "results.csv", type="primary")
             for r in reversed(data):
                 with st.expander(f"{r[0]} — {r[1]}"):
-                    # Текст ответа выводится через HTML, так как студент писал в редакторе
                     st.markdown("**Ответ:**", unsafe_allow_html=True)
                     st.markdown(r[2], unsafe_allow_html=True)
                     st.info(f"**Оценка ИИ:**\n{r[3]}")
@@ -250,25 +279,27 @@ elif st.session_state.role == "Teacher":
 # СТУДЕНТ
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
-    st.markdown(f'<p class="logo-text" style="font-size: 32px !important;">{exam["title"]}</p>', unsafe_allow_html=True)
+    
+    # Показываем студенту, в каком режиме он находится
+    mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
+    st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
     
     with st.expander("Показать условие задачи", expanded=True):
-        # Отрисовка HTML, полученного из Word (включая картинки и таблицы)
         st.markdown(exam['desc'], unsafe_allow_html=True)
         
     s_name = st.text_input("Ваше полное имя")
     
     st.markdown("### Ваш ответ")
-    # Новый продвинутый текстовый редактор вместо обычной текстовой зоны
-    s_essay = st_quill(placeholder="Напишите ваш ответ здесь. Вы можете менять шрифт, цвет и структуру текста...", html=True)
+    s_essay = st_quill(placeholder="Напишите ваш ответ здесь...", html=True)
     
     col_bt1, col_bt2 = st.columns(2)
     with col_bt1:
         if st.button("Отправить работу", type="primary"):
-            # Проверяем, что эссе не пустое (пустой редактор выдает пустые теги <p><br></p>)
             if s_name and len(s_essay.replace("<p><br></p>", "").strip()) > 0:
-                with st.spinner("AI анализирует ваш ответ..."):
-                    grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay)
+                with st.spinner("AI анализирует ваш ответ по критериям..."):
+                    # Передаем тип экзамена в функцию ИИ, чтобы он знал, как оценивать
+                    grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
                     c = db_conn.cursor()
                     c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
                     db_conn.commit()
