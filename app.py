@@ -8,7 +8,7 @@ import docx  # Новая библиотека для чтения Word
 
 # --- 1. CONFIG ---
 st.set_page_config(
-    page_title="AdilEduAssessment", 
+    page_title="AdilExam", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
@@ -112,7 +112,7 @@ if st.session_state.role is None:
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">AdilExam</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
