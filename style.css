@@ -103,3 +103,31 @@ input::placeholder, textarea::placeholder {
 .stSelectbox div[data-baseweb="select"] > div {
     color: #0a0a0a !important;
 }
+/* ОБЩИЕ ПРАВИЛА ДЛЯ КНОПОК */
+.stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+    width: 100%;
+}
+
+/* ПЕРВИЧНЫЕ КНОПКИ (Фиолетовые: Сохранить, Войти, Отправить) */
+button[kind^="primary"] {
+    background-color: #6a11cb !important;
+    color: white !important;
+    border: none !important;
+}
+button[kind^="primary"]:hover {
+    background-color: #8934eb !important; 
+    transform: translateY(-3px) !important;
+}
+
+/* ВТОРИЧНЫЕ КНОПКИ (Красные: Генерация кода, Выход) */
+button[kind^="secondary"] {
+    background-color: #ff4b4b !important;
+    color: white !important;
+    border: none !important;
+}
+button[kind^="secondary"]:hover {
+    background-color: #d43c3c !important; 
+    transform: translateY(-3px) !important;
+}
