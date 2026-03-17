@@ -24,9 +24,11 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 3. SIDEBAR FIX ---
+# --- 3. SIDEBAR FIX & SESSION STATE ---
 if "role" not in st.session_state: st.session_state.role = None
 if "gen_code" not in st.session_state: st.session_state.gen_code = ""
+if "exam_submitted" not in st.session_state: st.session_state.exam_submitted = False
+if "student_grade" not in st.session_state: st.session_state.student_grade = ""
 
 if st.session_state.role != "Student":
     st.markdown("""<style>[data-testid="collapsedControl"] {display: flex !important; top: 25px !important;} section[data-testid="stSidebar"] {display: flex !important;}</style>""", unsafe_allow_html=True)
@@ -75,7 +77,6 @@ def grade_essay(title, desc, criteria, strictness, essay, exam_type):
     elif strictness < 4:
         strictness_guide = "Grade leniently and encouragingly. Focus on the main ideas and forgive minor mistakes."
 
-    # ЖЕСТКОЕ РАЗДЕЛЕНИЕ ПРОМПТОВ В ЗАВИСИМОСТИ ОТ ТИПА ЭКЗАМЕНА
     if exam_type == "MYP":
         system_instruction = """
         CRITICAL INSTRUCTION 1: This is an official IB MYP Assessment. You MUST STRICTLY apply the IB MYP Assessment Criteria (A, B, C, D) for the given subject. 
@@ -140,7 +141,6 @@ if st.session_state.role is None:
     with col2:
         st.markdown("<p style='text-align: center; opacity: 0.7;'>Выберите формат сдачи и введите код доступа</p>", unsafe_allow_html=True)
         
-        # ВЫБОР РЕЖИМА СТУДЕНТОМ
         student_mode = st.radio("Режим экзамена:", ["Стандартный экзамен", "Экзамен MYP"], horizontal=True)
         access_code = st.text_input("Код", placeholder="Например: MYP-1A2B3", label_visibility="collapsed")
         
@@ -152,7 +152,6 @@ if st.session_state.role is None:
                 db_type = res[0]
                 selected_type = "Quick" if student_mode == "Стандартный экзамен" else "MYP"
                 
-                # ПРОВЕРКА СООТВЕТСТВИЯ КОДА И РЕЖИМА
                 if db_type != selected_type:
                     st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}', а вы выбрали '{selected_type}'. Переключите режим сверху.")
                 else:
@@ -161,6 +160,9 @@ if st.session_state.role is None:
                         "criteria": res[3], "strictness": res[4]
                     }
                     st.session_state.role = "Student"
+                    # Сбрасываем статус отправки при новом входе
+                    st.session_state.exam_submitted = False
+                    st.session_state.student_grade = ""
                     st.rerun()
             else:
                 st.error("Код не найден или введен неверно.")
@@ -280,45 +282,11 @@ elif st.session_state.role == "Teacher":
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
     
-    # Заголовок
     mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
     st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
     
-    # Разделяем экран на две колонки (Левая чуть шире - 60%, Правая - 40%)
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
         st.markdown("### Условие задачи")
-        # Оборачиваем текст задачи в блок с прокруткой
-        st.markdown(f'<div class="scrollable-container">{exam["desc"]}</div>', unsafe_allow_html=True)
-        
-        st.markdown("### Ваш ответ")
-        s_name = st.text_input("Ваше полное имя")
-        
-        # Редактор ответа
-        s_essay = st_quill(placeholder="Напишите ваш ответ здесь...", html=True)
-        
-        # Кнопки отправки и выхода
-        col_bt1, col_bt2 = st.columns(2)
-        with col_bt1:
-            if st.button("Отправить работу", type="primary"):
-                if s_name and len(s_essay.replace("<p><br></p>", "").strip()) > 0:
-                    with st.spinner("AI анализирует ваш ответ по критериям..."):
-                        grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
-                        c = db_conn.cursor()
-                        c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
-                        db_conn.commit()
-                        st.success("Работа успешно сдана!")
-                        st.markdown(grade)
-                else: 
-                    st.warning("Пожалуйста, заполните имя и напишите ответ.")
-        with col_bt2:
-            if st.button("Выйти на главную", type="secondary"):
-                st.session_state.role = None
-                st.rerun()
-
-    with col_right:
-        st.markdown("### Критерии оценивания")
-        # Оборачиваем критерии во второй блок с прокруткой
-        st.markdown(f'<div class="scrollable-container">{exam["criteria"]}</div>', unsafe_allow_html=True)
