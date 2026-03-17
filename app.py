@@ -282,51 +282,56 @@ elif st.session_state.role == "Teacher":
 
 # СТУДЕНТ
 elif st.session_state.role == "Student":
+    # Импортируем библиотеку для запуска скриптов прямо здесь
+    import streamlit.components.v1 as components 
+    
     exam = st.session_state.current_exam
-    
-    # ЛОГИКА ТАЙМЕРА (JS для визуального отображения)
-    time_left_html = ""
     is_time_up = False
+    remaining_seconds = 0
     
+    # Считаем время на стороне Python
     if st.session_state.exam_end_time and not st.session_state.exam_submitted:
         remaining_seconds = int(st.session_state.exam_end_time - time.time())
-        if remaining_seconds > 0:
-            time_left_html = f"""
-            <div id="exam-timer" style="font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid #ff4b4b; display: inline-block; float: right;">
-            ⏳ Вычисляю время...
-            </div>
-            <script>
-            var secondsLeft = {remaining_seconds};
-            var timerInterval = setInterval(function() {{
-                secondsLeft--;
-                var m = Math.floor(secondsLeft / 60);
-                var s = secondsLeft % 60;
-                if (s < 10) {{ s = "0" + s; }}
-                document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
-                if (secondsLeft <= 0) {{
-                    clearInterval(timerInterval);
-                    document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
-                }}
-            }}, 1000);
-            </script>
-            <div style="clear: both;"></div>
-            """
-        else:
+        if remaining_seconds <= 0:
             is_time_up = True
-            time_left_html = """
-            <div style="font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid #ff4b4b; display: inline-block; float: right;">
-            ⏰ Время вышло!
-            </div><div style="clear: both;"></div>
-            """
 
     col_h1, col_h2 = st.columns([2, 1])
     with col_h1:
         mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
         st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
         st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
+    
     with col_h2:
-        # Рисуем таймер справа от заголовка
-        st.markdown(time_left_html, unsafe_allow_html=True)
+        # ИСПОЛЬЗУЕМ БЕЗОПАСНЫЙ HTML-КОМПОНЕНТ ДЛЯ JS-ТАЙМЕРА
+        if st.session_state.exam_end_time and not st.session_state.exam_submitted:
+            if not is_time_up:
+                timer_html = f"""
+                <div id="exam-timer" style="font-family: sans-serif; font-size: 18px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ff4b4b; text-align: center;">
+                ⏳ Запуск таймера...
+                </div>
+                <script>
+                var secondsLeft = {remaining_seconds};
+                var timerInterval = setInterval(function() {{
+                    secondsLeft--;
+                    var m = Math.floor(secondsLeft / 60);
+                    var s = secondsLeft % 60;
+                    if (s < 10) {{ s = "0" + s; }}
+                    document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
+                    if (secondsLeft <= 0) {{
+                        clearInterval(timerInterval);
+                        document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
+                    }}
+                }}, 1000);
+                </script>
+                """
+                # Выводим таймер как iframe-компонент, где скрипты разрешены
+                components.html(timer_html, height=65)
+            else:
+                st.markdown("""
+                <div style="font-size: 18px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ff4b4b; text-align: center;">
+                ⏰ Время вышло!
+                </div>
+                """, unsafe_allow_html=True)
     
     col_left, col_right = st.columns([1.5, 1])
     
@@ -347,17 +352,15 @@ elif st.session_state.role == "Student":
             st.markdown("### Ваш ответ")
             s_name = st.text_input("Ваше полное имя (Имя и Фамилия)")
             
-            # Если время вышло, поле ответа становится недоступным для редактирования
             if is_time_up:
-                st.error("Время, отведенное на экзамен, закончилось. Вы больше не можете писать.")
+                st.error("Время, отведенное на экзамен, закончилось.")
                 s_essay = st.text_area("Напишите ваш ответ здесь...", height=250, disabled=True)
             else:
                 s_essay = st.text_area("Напишите ваш ответ здесь...", height=250)
             
             col_bt1, col_bt2 = st.columns(2)
             with col_bt1:
-                # Если время вышло, кнопку Отправить блокируем или разрешаем отправить только то, что успел
-                if st.button("Отправить работу", type="primary"):
+                if st.button("Отправить работу", type="primary", disabled=is_time_up):
                     if s_name and len(s_essay.strip()) > 0:
                         c = db_conn.cursor()
                         c.execute("SELECT id FROM submissions WHERE name=? AND title=?", (s_name, exam['title']))
