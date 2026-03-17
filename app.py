@@ -4,8 +4,8 @@ import pandas as pd
 from openai import OpenAI
 import random
 import string
+import time # Добавили библиотеку для работы со временем
 import mammoth 
-from streamlit_quill import st_quill
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -29,6 +29,7 @@ if "role" not in st.session_state: st.session_state.role = None
 if "gen_code" not in st.session_state: st.session_state.gen_code = ""
 if "exam_submitted" not in st.session_state: st.session_state.exam_submitted = False
 if "student_grade" not in st.session_state: st.session_state.student_grade = ""
+if "exam_end_time" not in st.session_state: st.session_state.exam_end_time = None
 
 if st.session_state.role != "Student":
     st.markdown("""<style>[data-testid="collapsedControl"] {display: flex !important; top: 25px !important;} section[data-testid="stSidebar"] {display: flex !important;}</style>""", unsafe_allow_html=True)
@@ -39,19 +40,18 @@ else:
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
     c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS exams_v2 (code TEXT PRIMARY KEY, type TEXT, title TEXT, desc TEXT, criteria TEXT, strictness REAL)')
+    # Обновили таблицу до v3, чтобы добавить поле time_limit
+    c.execute('CREATE TABLE IF NOT EXISTS exams_v3 (code TEXT PRIMARY KEY, type TEXT, title TEXT, desc TEXT, criteria TEXT, strictness REAL, time_limit INTEGER)')
     c.execute('CREATE TABLE IF NOT EXISTS submissions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, title TEXT, essay TEXT, grade TEXT)')
     conn.commit()
     return conn
 
 db_conn = init_db()
 
-# ГЕНЕРАТОР КОДА
 def generate_random_code(prefix="EXAM"):
     chars = string.ascii_uppercase + string.digits
     return f"{prefix}-" + "".join(random.choices(chars, k=5))
 
-# ЧТЕНИЕ ФАЙЛОВ
 def read_file(uploaded_file):
     if uploaded_file is not None:
         try:
@@ -64,7 +64,7 @@ def read_file(uploaded_file):
             return "Ошибка чтения файла. Убедитесь, что это не поврежденный файл."
     return ""
 
-# --- 5. AI LOGIC (РАЗДЕЛЕНИЕ MYP И СТАНДАРТА) ---
+# --- 5. AI LOGIC ---
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=st.secrets["API_KEY"].strip(),
@@ -79,16 +79,15 @@ def grade_essay(title, desc, criteria, strictness, essay, exam_type):
 
     if exam_type == "MYP":
         system_instruction = """
-        CRITICAL INSTRUCTION 1: This is an official IB MYP Assessment. You MUST STRICTLY apply the IB MYP Assessment Criteria (A, B, C, D) for the given subject. 
-        Evaluate each relevant criterion on a scale of 1 to 8. 
-        Provide a final overall IB MYP grade on a scale of 1 to 7. 
-        DO NOT use a 100-point scale under any circumstances.
+        ABSOLUTE RULE: This is an IB MYP Assessment. 
+        1. YOU MUST USE THE 1-8 SCALE for criteria and 1-7 SCALE for the final grade.
+        2. DO NOT USE THE NUMBER 100. DO NOT write "out of 100". PERCENTAGES ARE BANNED.
         """
         format_instruction = """
         Format: 
         ### Итоговая оценка MYP: [Итоговый балл 1-7]
-        ### Баллы по критериям: [Критерий A: x/8, Критерий B: x/8, и т.д.]
-        ### Отзыв: [Детальный анализ ответа по каждому критерию в соответствии с рубрикой MYP]
+        ### Баллы по критериям: [Критерий A: x/8, Критерий B: x/8...]
+        ### Отзыв: [Детальный анализ по критериям MYP]
         """
     else:
         system_instruction = "CRITICAL INSTRUCTION 1: Evaluate the response on a standard 100-point scale based on the provided criteria."
@@ -146,23 +145,27 @@ if st.session_state.role is None:
         
         if st.button("Начать экзамен", type="primary"):
             c = db_conn.cursor()
-            c.execute("SELECT type, title, desc, criteria, strictness FROM exams_v2 WHERE code=?", (access_code,))
+            c.execute("SELECT type, title, desc, criteria, strictness, time_limit FROM exams_v3 WHERE code=?", (access_code,))
             res = c.fetchone()
             if res:
                 db_type = res[0]
                 selected_type = "Quick" if student_mode == "Стандартный экзамен" else "MYP"
                 
                 if db_type != selected_type:
-                    st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}', а вы выбрали '{selected_type}'. Переключите режим сверху.")
+                    st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}'. Переключите режим сверху.")
                 else:
                     st.session_state.current_exam = {
                         "type": res[0], "title": res[1], "desc": res[2], 
-                        "criteria": res[3], "strictness": res[4]
+                        "criteria": res[3], "strictness": res[4], "time_limit": res[5]
                     }
                     st.session_state.role = "Student"
-                    # Сбрасываем статус отправки при новом входе
                     st.session_state.exam_submitted = False
                     st.session_state.student_grade = ""
+                    # Устанавливаем таймер
+                    if res[5] > 0:
+                        st.session_state.exam_end_time = time.time() + (res[5] * 60)
+                    else:
+                        st.session_state.exam_end_time = None
                     st.rerun()
             else:
                 st.error("Код не найден или введен неверно.")
@@ -183,6 +186,9 @@ elif st.session_state.role == "Teacher":
             nt = st.text_input("Название экзамена")
             nd = st.text_area("Описание задачи (Поддерживает HTML)")
             
+            # Поле для времени
+            t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
+            
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
                 nc = st.text_input("Код доступа", value=st.session_state.gen_code)
@@ -197,7 +203,7 @@ elif st.session_state.role == "Teacher":
             if st.form_submit_button("Сохранить задачу", type="primary"):
                 if nc and nt:
                     c = db_conn.cursor()
-                    c.execute("INSERT OR REPLACE INTO exams_v2 VALUES (?,?,?,?,?,?)", (nc, "Quick", nt, nd, ncr, 5.0))
+                    c.execute("INSERT OR REPLACE INTO exams_v3 VALUES (?,?,?,?,?,?,?)", (nc, "Quick", nt, nd, ncr, 5.0, t_limit))
                     db_conn.commit()
                     st.success(f"Задача сохранена! Код: {nc}")
                 else:
@@ -219,15 +225,9 @@ elif st.session_state.role == "Teacher":
 
         st.markdown("### 1. Условие задачи и Предмет")
         myp_subject = st.selectbox("Специфика предмета MYP", [
-            "Не указано (Использовать общие критерии)",
-            "Науки (Sciences)",
-            "Математика (Mathematics)",
-            "Язык и литература (Language and Literature)",
-            "Приобретение языка (Language Acquisition)",
-            "Индивидуумы и общества (Individuals and Societies)",
-            "Дизайн (Design)",
-            "Искусство (Arts)",
-            "Физкультура и здоровье (PHE)"
+            "Не указано", "Науки (Sciences)", "Математика (Mathematics)", 
+            "Язык и литература", "Приобретение языка", "Индивидуумы и общества", 
+            "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
         ])
         
         task_file = st.file_uploader("Загрузить файл с условием (.docx или .txt)", type=["docx", "txt"])
@@ -236,7 +236,9 @@ elif st.session_state.role == "Teacher":
         st.markdown("### 2. Дополнительные критерии (опционально)")
         crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
         
-        st.markdown("### 3. Настройки ИИ")
+        st.markdown("### 3. Настройки экзамена")
+        # Поле для времени MYP
+        t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=60, help="0 = без ограничений")
         strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
 
         if st.button("Опубликовать MYP задачу", type="primary"):
@@ -252,7 +254,7 @@ elif st.session_state.role == "Teacher":
                 if not final_crit.strip(): final_crit = "Оценивать по стандартам MYP."
 
                 c = db_conn.cursor()
-                c.execute("INSERT OR REPLACE INTO exams_v2 VALUES (?,?,?,?,?,?)", (nc, "MYP", nt, final_desc, final_crit, float(strictness)))
+                c.execute("INSERT OR REPLACE INTO exams_v3 VALUES (?,?,?,?,?,?,?)", (nc, "MYP", nt, final_desc, final_crit, float(strictness), t_limit))
                 db_conn.commit()
                 st.success(f"MYP Экзамен опубликован! Код доступа: {nc}")
             else:
@@ -260,7 +262,7 @@ elif st.session_state.role == "Teacher":
 
     elif menu_selection == "Кастомные задачи":
         st.header("Кастомные задачи")
-        st.info("Этот раздел находится в разработке. Здесь будет конструктор нестандартных экзаменов.")
+        st.info("Этот раздел находится в разработке.")
 
     elif menu_selection == "Результаты":
         st.header("Результаты студентов")
@@ -282,39 +284,79 @@ elif st.session_state.role == "Teacher":
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
     
-    mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
-    st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
-    st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
+    # ЛОГИКА ТАЙМЕРА (JS для визуального отображения)
+    time_left_html = ""
+    is_time_up = False
+    
+    if st.session_state.exam_end_time and not st.session_state.exam_submitted:
+        remaining_seconds = int(st.session_state.exam_end_time - time.time())
+        if remaining_seconds > 0:
+            time_left_html = f"""
+            <div id="exam-timer" style="font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid #ff4b4b; display: inline-block; float: right;">
+            ⏳ Вычисляю время...
+            </div>
+            <script>
+            var secondsLeft = {remaining_seconds};
+            var timerInterval = setInterval(function() {{
+                secondsLeft--;
+                var m = Math.floor(secondsLeft / 60);
+                var s = secondsLeft % 60;
+                if (s < 10) {{ s = "0" + s; }}
+                document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
+                if (secondsLeft <= 0) {{
+                    clearInterval(timerInterval);
+                    document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
+                }}
+            }}, 1000);
+            </script>
+            <div style="clear: both;"></div>
+            """
+        else:
+            is_time_up = True
+            time_left_html = """
+            <div style="font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid #ff4b4b; display: inline-block; float: right;">
+            ⏰ Время вышло!
+            </div><div style="clear: both;"></div>
+            """
+
+    col_h1, col_h2 = st.columns([2, 1])
+    with col_h1:
+        mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
+        st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
+    with col_h2:
+        # Рисуем таймер справа от заголовка
+        st.markdown(time_left_html, unsafe_allow_html=True)
     
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
         st.markdown("### Условие задачи")
-        
-        # НАДЕЖНЫЙ ВСТРОЕННЫЙ СКРОЛЛ-КОНТЕЙНЕР (Высота 400 пикселей)
         with st.container(height=400):
             st.markdown(exam["desc"], unsafe_allow_html=True)
         
-        # Если работа сдана
         if st.session_state.exam_submitted:
             st.success("Вы успешно сдали эту работу! Повторная отправка невозможна.")
             st.markdown(st.session_state.student_grade)
-            
             if st.button("Выйти на главную", type="secondary"):
                 st.session_state.role = None
                 st.session_state.exam_submitted = False
                 st.rerun()
                 
-        # Если работа еще НЕ сдана
         else:
             st.markdown("### Ваш ответ")
             s_name = st.text_input("Ваше полное имя (Имя и Фамилия)")
             
-            # Надежное текстовое поле (без сторонних библиотек, которые могут зависать)
-            s_essay = st.text_area("Напишите ваш ответ здесь...", height=250)
+            # Если время вышло, поле ответа становится недоступным для редактирования
+            if is_time_up:
+                st.error("Время, отведенное на экзамен, закончилось. Вы больше не можете писать.")
+                s_essay = st.text_area("Напишите ваш ответ здесь...", height=250, disabled=True)
+            else:
+                s_essay = st.text_area("Напишите ваш ответ здесь...", height=250)
             
             col_bt1, col_bt2 = st.columns(2)
             with col_bt1:
+                # Если время вышло, кнопку Отправить блокируем или разрешаем отправить только то, что успел
                 if st.button("Отправить работу", type="primary"):
                     if s_name and len(s_essay.strip()) > 0:
                         c = db_conn.cursor()
@@ -340,7 +382,5 @@ elif st.session_state.role == "Student":
 
     with col_right:
         st.markdown("### Критерии оценивания")
-        
-        # НАДЕЖНЫЙ ВСТРОЕННЫЙ СКРОЛЛ-КОНТЕЙНЕР ДЛЯ ПРАВОЙ ЧАСТИ
         with st.container(height=600):
             st.markdown(exam["criteria"], unsafe_allow_html=True)
