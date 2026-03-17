@@ -169,7 +169,7 @@ elif st.session_state.role == "Teacher":
                     st.warning("Укажите название и код доступа.")
 
     elif menu_selection == "MYP задачи":
-        st.header("MYP задачи (Продвинутый уровень)")
+        st.header("MYP задачи ")
         
         nt = st.text_input("Название MYP Задачи")
         
