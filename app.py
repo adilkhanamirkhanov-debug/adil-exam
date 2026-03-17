@@ -290,3 +290,57 @@ elif st.session_state.role == "Student":
     
     with col_left:
         st.markdown("### Условие задачи")
+        
+        # НАДЕЖНЫЙ ВСТРОЕННЫЙ СКРОЛЛ-КОНТЕЙНЕР (Высота 400 пикселей)
+        with st.container(height=400):
+            st.markdown(exam["desc"], unsafe_allow_html=True)
+        
+        # Если работа сдана
+        if st.session_state.exam_submitted:
+            st.success("Вы успешно сдали эту работу! Повторная отправка невозможна.")
+            st.markdown(st.session_state.student_grade)
+            
+            if st.button("Выйти на главную", type="secondary"):
+                st.session_state.role = None
+                st.session_state.exam_submitted = False
+                st.rerun()
+                
+        # Если работа еще НЕ сдана
+        else:
+            st.markdown("### Ваш ответ")
+            s_name = st.text_input("Ваше полное имя (Имя и Фамилия)")
+            
+            # Надежное текстовое поле (без сторонних библиотек, которые могут зависать)
+            s_essay = st.text_area("Напишите ваш ответ здесь...", height=250)
+            
+            col_bt1, col_bt2 = st.columns(2)
+            with col_bt1:
+                if st.button("Отправить работу", type="primary"):
+                    if s_name and len(s_essay.strip()) > 0:
+                        c = db_conn.cursor()
+                        c.execute("SELECT id FROM submissions WHERE name=? AND title=?", (s_name, exam['title']))
+                        
+                        if c.fetchone():
+                            st.error(f"Ученик '{s_name}' уже сдавал этот экзамен.")
+                        else:
+                            with st.spinner("AI анализирует ваш ответ..."):
+                                grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
+                                c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
+                                db_conn.commit()
+                                
+                                st.session_state.exam_submitted = True
+                                st.session_state.student_grade = grade
+                                st.rerun()
+                    else: 
+                        st.warning("Пожалуйста, заполните имя и напишите ответ.")
+            with col_bt2:
+                if st.button("Выйти на главную", type="secondary"):
+                    st.session_state.role = None
+                    st.rerun()
+
+    with col_right:
+        st.markdown("### Критерии оценивания")
+        
+        # НАДЕЖНЫЙ ВСТРОЕННЫЙ СКРОЛЛ-КОНТЕЙНЕР ДЛЯ ПРАВОЙ ЧАСТИ
+        with st.container(height=600):
+            st.markdown(exam["criteria"], unsafe_allow_html=True)
