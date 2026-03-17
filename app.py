@@ -280,34 +280,45 @@ elif st.session_state.role == "Teacher":
 elif st.session_state.role == "Student":
     exam = st.session_state.current_exam
     
-    # Показываем студенту, в каком режиме он находится
+    # Заголовок
     mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
     st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
     
-    with st.expander("Показать условие задачи", expanded=True):
-        st.markdown(exam['desc'], unsafe_allow_html=True)
+    # Разделяем экран на две колонки (Левая чуть шире - 60%, Правая - 40%)
+    col_left, col_right = st.columns([1.5, 1])
+    
+    with col_left:
+        st.markdown("### Условие задачи")
+        # Оборачиваем текст задачи в блок с прокруткой
+        st.markdown(f'<div class="scrollable-container">{exam["desc"]}</div>', unsafe_allow_html=True)
         
-    s_name = st.text_input("Ваше полное имя")
-    
-    st.markdown("### Ваш ответ")
-    s_essay = st_quill(placeholder="Напишите ваш ответ здесь...", html=True)
-    
-    col_bt1, col_bt2 = st.columns(2)
-    with col_bt1:
-        if st.button("Отправить работу", type="primary"):
-            if s_name and len(s_essay.replace("<p><br></p>", "").strip()) > 0:
-                with st.spinner("AI анализирует ваш ответ по критериям..."):
-                    # Передаем тип экзамена в функцию ИИ, чтобы он знал, как оценивать
-                    grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
-                    c = db_conn.cursor()
-                    c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
-                    db_conn.commit()
-                    st.success("Работа успешно сдана!")
-                    st.markdown(grade)
-            else: 
-                st.warning("Пожалуйста, заполните имя и напишите ответ.")
-    with col_bt2:
-        if st.button("Выйти на главную", type="secondary"):
-            st.session_state.role = None
-            st.rerun()
+        st.markdown("### Ваш ответ")
+        s_name = st.text_input("Ваше полное имя")
+        
+        # Редактор ответа
+        s_essay = st_quill(placeholder="Напишите ваш ответ здесь...", html=True)
+        
+        # Кнопки отправки и выхода
+        col_bt1, col_bt2 = st.columns(2)
+        with col_bt1:
+            if st.button("Отправить работу", type="primary"):
+                if s_name and len(s_essay.replace("<p><br></p>", "").strip()) > 0:
+                    with st.spinner("AI анализирует ваш ответ по критериям..."):
+                        grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
+                        c = db_conn.cursor()
+                        c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
+                        db_conn.commit()
+                        st.success("Работа успешно сдана!")
+                        st.markdown(grade)
+                else: 
+                    st.warning("Пожалуйста, заполните имя и напишите ответ.")
+        with col_bt2:
+            if st.button("Выйти на главную", type="secondary"):
+                st.session_state.role = None
+                st.rerun()
+
+    with col_right:
+        st.markdown("### Критерии оценивания")
+        # Оборачиваем критерии во второй блок с прокруткой
+        st.markdown(f'<div class="scrollable-container">{exam["criteria"]}</div>', unsafe_allow_html=True)
