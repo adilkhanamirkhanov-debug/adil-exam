@@ -4,11 +4,11 @@ import pandas as pd
 from openai import OpenAI
 import random
 import string
-import docx  # Новая библиотека для чтения Word
+import docx
 
 # --- 1. CONFIG ---
 st.set_page_config(
-    page_title="AdilExam", 
+    page_title="AdilEduAssessment", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
@@ -48,19 +48,17 @@ def generate_random_code(prefix="EXAM"):
     chars = string.ascii_uppercase + string.digits
     return f"{prefix}-" + "".join(random.choices(chars, k=5))
 
-# ЧТЕНИЕ ФАЙЛОВ (Обновлено для поддержки DOCX)
+# ЧТЕНИЕ ФАЙЛОВ
 def read_file(uploaded_file):
     if uploaded_file is not None:
         try:
-            # Если это файл Word
             if uploaded_file.name.endswith('.docx'):
                 doc = docx.Document(uploaded_file)
                 return "\n".join([para.text for para in doc.paragraphs])
-            # Если это обычный текстовый файл (на всякий случай оставил поддержку)
             else:
                 return uploaded_file.getvalue().decode("utf-8")
         except Exception as e:
-            return f"Ошибка чтения файла. Убедитесь, что это не поврежденный .docx файл."
+            return "Ошибка чтения файла. Убедитесь, что это не поврежденный файл."
     return ""
 
 # --- 5. AI LOGIC ---
@@ -79,17 +77,19 @@ def grade_essay(title, desc, criteria, strictness, essay):
     prompt = f"""
     Grade this response for the exam: '{title}'.
     Task/Context: {desc}
-    Grading Criteria: {criteria}
+    Grading Criteria and Context: {criteria}
     Strictness Level (1-10): {strictness}. {strictness_guide}
     
-    CRITICAL INSTRUCTION: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'. If the student wrote in Russian, reply in Russian. If Kazakh, reply in Kazakh. If English, reply in English.
+    CRITICAL INSTRUCTION 1: If an IB MYP Subject (e.g., Sciences, Individuals and Societies, Mathematics) is specified in the Criteria context, you MUST apply the official IB MYP Assessment Criteria (A, B, C, D) specific to that EXACT subject group. Structure your feedback around those specific MYP strands.
+    
+    CRITICAL INSTRUCTION 2: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'. If the student wrote in Russian, reply in Russian. If Kazakh, reply in Kazakh. If English, reply in English.
     
     Student's Work: 
     {essay}
     
     Format: 
-    ### Grade: [X]/100
-    ### Feedback: [Detailed text in the student's language]
+    ### Grade: [X]/100 (Estimate the MYP level and convert to 100-point scale)
+    ### Feedback: [Detailed breakdown analyzing the relevant MYP Criteria A, B, C, D in the student's language]
     """
     response = client.chat.completions.create(
         model="openai/gpt-4o-mini",
@@ -112,7 +112,7 @@ if st.session_state.role is None:
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown('<p class="logo-text">AdilExam</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
@@ -182,14 +182,24 @@ elif st.session_state.role == "Teacher":
                 st.session_state.gen_code = generate_random_code("MYP")
                 st.rerun()
 
-        st.markdown("### 1. Условие задачи")
-        # Обновлено: теперь принимает docx
+        st.markdown("### 1. Условие задачи и Предмет")
+        myp_subject = st.selectbox("Специфика предмета MYP", [
+            "Не указано (Использовать общие критерии)",
+            "Науки (Sciences)",
+            "Математика (Mathematics)",
+            "Язык и литература (Language and Literature)",
+            "Приобретение языка (Language Acquisition)",
+            "Индивидуумы и общества (Individuals and Societies)",
+            "Дизайн (Design)",
+            "Искусство (Arts)",
+            "Физкультура и здоровье (PHE)"
+        ])
+        
         task_file = st.file_uploader("Загрузить файл с условием (.docx, .txt)", type=["docx", "txt"])
         task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
         
-        st.markdown("### 2. Критерии оценивания")
-        # Обновлено: теперь принимает docx
-        crit_file = st.file_uploader("Загрузить рубрику/критерии (.docx, .txt)", type=["docx", "txt"])
+        st.markdown("### 2. Дополнительные критерии (опционально)")
+        crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
         
         st.markdown("### 3. Настройки ИИ")
         strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5, help="1 = Мягко, 10 = Очень строго")
@@ -197,7 +207,10 @@ elif st.session_state.role == "Teacher":
         if st.button("Опубликовать MYP задачу", type="primary"):
             if nt and nc:
                 final_desc = read_file(task_file) + "\n\nВопросы:\n" + task_questions
-                final_crit = read_file(crit_file)
+                
+                # Вшиваем выбранный предмет прямо в текст критериев для ИИ
+                subject_prefix = f"[ОФИЦИАЛЬНЫЙ ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
+                final_crit = subject_prefix + read_file(crit_file)
                 
                 if not final_desc.strip(): final_desc = "Смотрите вопросы."
                 if not final_crit.strip(): final_crit = "Оценивать по стандартам MYP."
