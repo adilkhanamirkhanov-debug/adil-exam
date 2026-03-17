@@ -169,3 +169,8 @@ img {
     height: auto;
     border-radius: 8px;
 }
+/* СВЕТЛЫЙ ТЕКСТ ДЛЯ ОТЗЫВОВ ИИ И СПИСКОВ */
+.stMarkdown p, .stMarkdown li, .stMarkdown span {
+    color: #e0e0e0 !important; 
+    line-height: 1.6;
+}
