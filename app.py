@@ -307,7 +307,7 @@ elif st.session_state.role == "Student":
             if not is_time_up:
                 timer_html = f"""
                 <div id="exam-timer" style="font-family: sans-serif; font-size: 18px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ff4b4b; text-align: center;">
-                ⏳ Запуск таймера...
+                 Запуск таймера...
                 </div>
                 <script>
                 var secondsLeft = {remaining_seconds};
@@ -316,10 +316,10 @@ elif st.session_state.role == "Student":
                     var m = Math.floor(secondsLeft / 60);
                     var s = secondsLeft % 60;
                     if (s < 10) {{ s = "0" + s; }}
-                    document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
+                    document.getElementById("exam-timer").innerHTML = " Осталось: " + m + ":" + s;
                     if (secondsLeft <= 0) {{
                         clearInterval(timerInterval);
-                        document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
+                        document.getElementById("exam-timer").innerHTML = " Время вышло!";
                     }}
                 }}, 1000);
                 </script>
@@ -329,7 +329,7 @@ elif st.session_state.role == "Student":
             else:
                 st.markdown("""
                 <div style="font-size: 18px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ff4b4b; text-align: center;">
-                ⏰ Время вышло!
+                 Время вышло!
                 </div>
                 """, unsafe_allow_html=True)
     
