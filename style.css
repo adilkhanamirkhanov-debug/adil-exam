@@ -174,3 +174,30 @@ img {
     color: #e0e0e0 !important; 
     line-height: 1.6;
 }
+/* БЛОКИ С НЕЗАВИСИМОЙ ПРОКРУТКОЙ ДЛЯ ЗАДАЧ И КРИТЕРИЕВ */
+.scrollable-container {
+    max-height: 55vh; /* Занимает 55% высоты экрана */
+    overflow-y: auto;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(106, 17, 203, 0.3);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+}
+
+/* Настройка внешнего вида ползунка прокрутки */
+.scrollable-container::-webkit-scrollbar {
+    width: 8px;
+}
+.scrollable-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+.scrollable-container::-webkit-scrollbar-thumb {
+    background-color: #6a11cb;
+    border-radius: 8px;
+}
+.scrollable-container::-webkit-scrollbar-thumb:hover {
+    background-color: #8934eb;
+}
