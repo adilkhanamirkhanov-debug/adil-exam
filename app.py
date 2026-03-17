@@ -134,7 +134,7 @@ elif st.session_state.role == "Teacher":
             st.rerun()
 
     if menu_selection == "Быстрые задачи":
-        st.header("Быстрые задачи (Базовый вариант)")
+        st.header("Быстрые задачи ")
         with st.form("quick_exam"):
             nt = st.text_input("Название экзамена")
             nd = st.text_area("Описание задачи")
@@ -174,11 +174,11 @@ elif st.session_state.role == "Teacher":
                 st.rerun()
 
         st.markdown("### 1. Условие задачи")
-        task_file = st.file_uploader("Загрузить файл с условием (.txt)", type=["txt"])
+        task_file = st.file_uploader("Загрузить файл с условием (.txt)", type=["docx"])
         task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
         
         st.markdown("### 2. Критерии оценивания")
-        crit_file = st.file_uploader("Загрузить рубрику/критерии (.txt)", type=["txt"])
+        crit_file = st.file_uploader("Загрузить рубрику/критерии (.txt)", type=["docx"])
         
         st.markdown("### 3. Настройки ИИ")
         strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5, help="1 = Мягко, 10 = Очень строго")
