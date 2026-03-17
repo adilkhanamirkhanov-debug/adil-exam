@@ -75,12 +75,14 @@ def grade_essay(title, desc, criteria, strictness, essay):
     Grading Criteria: {criteria}
     Strictness Level (1-10): {strictness}. {strictness_guide}
     
+    CRITICAL INSTRUCTION: You MUST write your 'Feedback' in the EXACT SAME LANGUAGE that the student used in their 'Student's Work'. If the student wrote in Russian, reply in Russian. If Kazakh, reply in Kazakh. If English, reply in English.
+    
     Student's Work: 
     {essay}
     
     Format: 
     ### Grade: [X]/100
-    ### Feedback: [Detailed text]
+    ### Feedback: [Detailed text in the student's language]
     """
     response = client.chat.completions.create(
         model="openai/gpt-4o-mini",
@@ -88,7 +90,6 @@ def grade_essay(title, desc, criteria, strictness, essay):
         temperature=0.3
     )
     return response.choices[0].message.content
-
 # --- 6. NAVIGATION ---
 
 # ГЛАВНЫЙ ЭКРАН (ВХОД)
