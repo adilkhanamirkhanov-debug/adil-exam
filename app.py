@@ -400,25 +400,33 @@ elif st.session_state.role == "Student":
         # ТАЙМЕР
         if st.session_state.exam_end_time and not st.session_state.exam_submitted:
             if not is_time_up:
+                # Переводим время окончания в миллисекунды для JavaScript (оно неизменно!)
+                end_time_ms = int(st.session_state.exam_end_time * 1000)
+                
                 timer_html = f"""
                 <div id="exam-timer" style="font-family: sans-serif; font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 15px; border-radius: 8px; border: 2px solid #ff4b4b; text-align: center;">
-                ⏳ Запуск таймера...
+                ⏳ Вычисление времени...
                 </div>
                 <script>
-                var secondsLeft = {remaining_seconds};
+                var endTime = {end_time_ms};
                 var timerInterval = setInterval(function() {{
-                    secondsLeft--;
-                    var m = Math.floor(secondsLeft / 60);
-                    var s = secondsLeft % 60;
-                    if (s < 10) {{ s = "0" + s; }}
-                    document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
-                    if (secondsLeft <= 0) {{
+                    var now = new Date().getTime();
+                    var distance = endTime - now;
+                    
+                    if (distance <= 0) {{
                         clearInterval(timerInterval);
                         document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
+                    }} else {{
+                        // Считаем минуты и секунды напрямую из разницы во времени
+                        var m = Math.floor(distance / (1000 * 60));
+                        var s = Math.floor((distance % (1000 * 60)) / 1000);
+                        if (s < 10) {{ s = "0" + s; }}
+                        document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
                     }}
                 }}, 1000);
                 </script>
                 """
+                # Выводим таймер
                 components.html(timer_html, height=80)
             else:
                 st.markdown("""
