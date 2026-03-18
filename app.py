@@ -284,17 +284,25 @@ elif st.session_state.role == "Teacher":
 elif st.session_state.role == "Student":
     import streamlit.components.v1 as components 
     
+    # Инициализация черновика в памяти платформы
+    if "student_draft" not in st.session_state:
+        st.session_state.student_draft = ""
+        
+    def update_draft():
+        # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
+        st.session_state.student_draft = st.session_state.essay_input
+    
     exam = st.session_state.current_exam
     is_time_up = False
     remaining_seconds = 0
     
-    # Считаем время на стороне Python
+    # Считаем время
     if st.session_state.exam_end_time and not st.session_state.exam_submitted:
         remaining_seconds = int(st.session_state.exam_end_time - time.time())
         if remaining_seconds <= 0:
             is_time_up = True
 
-    # Заголовок теперь на всю ширину (без таймера справа сверху)
+    # Заголовок
     mode_label = "Режим IB MYP" if exam["type"] == "MYP" else "Стандартный режим"
     st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
@@ -312,18 +320,25 @@ elif st.session_state.role == "Student":
             if st.button("Выйти на главную", type="secondary"):
                 st.session_state.role = None
                 st.session_state.exam_submitted = False
+                st.session_state.student_draft = "" # Очищаем черновик после успешной сдачи
                 st.rerun()
                 
         else:
             st.markdown("### Ваш ответ")
             s_name = st.text_input("Ваше полное имя (Имя и Фамилия)")
             
-            # УВЕЛИЧЕННОЕ ПОЛЕ ДЛЯ ОТВЕТА (height=500 вместо 250)
+            # Поле для ответа с привязкой к черновику 
+            s_essay = st.text_area(
+                "Напишите ваш ответ здесь... (сохраняется автоматически)", 
+                value=st.session_state.student_draft,
+                height=500, 
+                key="essay_input",
+                on_change=update_draft,
+                disabled=is_time_up
+            )
+            
             if is_time_up:
                 st.error("Время, отведенное на экзамен, закончилось.")
-                s_essay = st.text_area("Напишите ваш ответ здесь...", height=500, disabled=True)
-            else:
-                s_essay = st.text_area("Напишите ваш ответ здесь...", height=500)
             
             col_bt1, col_bt2 = st.columns(2)
             with col_bt1:
@@ -352,18 +367,17 @@ elif st.session_state.role == "Student":
 
     with col_right:
         st.markdown("### Критерии оценивания")
-        # Немного уменьшили высоту контейнера с критериями, чтобы влез таймер
         with st.container(height=450):
             st.markdown(exam["criteria"], unsafe_allow_html=True)
             
-        st.markdown("---") # Визуальный разделитель
+        st.markdown("---")
         
-        # ТАЙМЕР ТЕПЕРЬ ЗДЕСЬ (ПОД КРИТЕРИЯМИ)
+        # ТАЙМЕР
         if st.session_state.exam_end_time and not st.session_state.exam_submitted:
             if not is_time_up:
                 timer_html = f"""
                 <div id="exam-timer" style="font-family: sans-serif; font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 15px; border-radius: 8px; border: 2px solid #ff4b4b; text-align: center;">
-                 Запуск таймера...
+                ⏳ Запуск таймера...
                 </div>
                 <script>
                 var secondsLeft = {remaining_seconds};
@@ -372,10 +386,10 @@ elif st.session_state.role == "Student":
                     var m = Math.floor(secondsLeft / 60);
                     var s = secondsLeft % 60;
                     if (s < 10) {{ s = "0" + s; }}
-                    document.getElementById("exam-timer").innerHTML = " Осталось: " + m + ":" + s;
+                    document.getElementById("exam-timer").innerHTML = "⏳ Осталось: " + m + ":" + s;
                     if (secondsLeft <= 0) {{
                         clearInterval(timerInterval);
-                        document.getElementById("exam-timer").innerHTML = " Время вышло!";
+                        document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
                     }}
                 }}, 1000);
                 </script>
@@ -384,6 +398,6 @@ elif st.session_state.role == "Student":
             else:
                 st.markdown("""
                 <div style="font-size: 20px; font-weight: bold; color: #ff4b4b; background: rgba(255, 75, 75, 0.1); padding: 15px; border-radius: 8px; border: 2px solid #ff4b4b; text-align: center;">
-                 Время вышло!
+                ⏰ Время вышло!
                 </div>
                 """, unsafe_allow_html=True)
