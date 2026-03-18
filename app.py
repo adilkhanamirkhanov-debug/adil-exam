@@ -4,8 +4,9 @@ import pandas as pd
 from openai import OpenAI
 import random
 import string
-import time # Добавили библиотеку для работы со временем
+import time 
 import mammoth 
+import streamlit.components.v1 as components
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -24,12 +25,38 @@ def load_css(file_name):
 
 load_css("style.css")
 
-# --- 3. SIDEBAR FIX & SESSION STATE ---
+# --- 3. SESSION STATE & URL RECOVERY ---
 if "role" not in st.session_state: st.session_state.role = None
 if "gen_code" not in st.session_state: st.session_state.gen_code = ""
 if "exam_submitted" not in st.session_state: st.session_state.exam_submitted = False
 if "student_grade" not in st.session_state: st.session_state.student_grade = ""
 if "exam_end_time" not in st.session_state: st.session_state.exam_end_time = None
+if "student_draft" not in st.session_state: st.session_state.student_draft = ""
+
+def update_draft():
+    # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
+    st.session_state.student_draft = st.session_state.essay_input
+
+# ВОССТАНОВЛЕНИЕ СЕССИИ ИЗ URL (Если обновили страницу)
+if st.session_state.role is None and "exam_code" in st.query_params:
+    code_from_url = st.query_params["exam_code"]
+    conn = sqlite3.connect('platform.db', check_same_thread=False)
+    c = conn.cursor()
+    # Проверяем, существует ли таблица exams_v3, чтобы избежать ошибок при первом запуске
+    try:
+        c.execute("SELECT type, title, desc, criteria, strictness, time_limit FROM exams_v3 WHERE code=?", (code_from_url,))
+        res = c.fetchone()
+        if res:
+            st.session_state.current_exam = {
+                "type": res[0], "title": res[1], "desc": res[2], 
+                "criteria": res[3], "strictness": res[4], "time_limit": res[5]
+            }
+            st.session_state.role = "Student"
+            # При жестком обновлении таймер начнется заново (т.к. старая память стерлась)
+            if res[5] > 0 and st.session_state.exam_end_time is None:
+                st.session_state.exam_end_time = time.time() + (res[5] * 60)
+    except sqlite3.OperationalError:
+        pass # Таблица еще не создана
 
 if st.session_state.role != "Student":
     st.markdown("""<style>[data-testid="collapsedControl"] {display: flex !important; top: 25px !important;} section[data-testid="stSidebar"] {display: flex !important;}</style>""", unsafe_allow_html=True)
@@ -40,7 +67,6 @@ else:
 def init_db():
     conn = sqlite3.connect('platform.db', check_same_thread=False)
     c = conn.cursor()
-    # Обновили таблицу до v3, чтобы добавить поле time_limit
     c.execute('CREATE TABLE IF NOT EXISTS exams_v3 (code TEXT PRIMARY KEY, type TEXT, title TEXT, desc TEXT, criteria TEXT, strictness REAL, time_limit INTEGER)')
     c.execute('CREATE TABLE IF NOT EXISTS submissions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, title TEXT, essay TEXT, grade TEXT)')
     conn.commit()
@@ -131,6 +157,7 @@ if st.session_state.role is None:
         if st.button("Login", type="primary"):
             if t_user == "admin" and t_pass == "12345":
                 st.session_state.role = "Teacher"
+                st.query_params.clear() # Очищаем URL при входе учителя
                 st.rerun()
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -161,11 +188,14 @@ if st.session_state.role is None:
                     st.session_state.role = "Student"
                     st.session_state.exam_submitted = False
                     st.session_state.student_grade = ""
-                    # Устанавливаем таймер
+                    
                     if res[5] > 0:
                         st.session_state.exam_end_time = time.time() + (res[5] * 60)
                     else:
                         st.session_state.exam_end_time = None
+                        
+                    # ЗАПИСЫВАЕМ КОД В URL, чтобы не выкинуло при обновлении
+                    st.query_params["exam_code"] = access_code
                     st.rerun()
             else:
                 st.error("Код не найден или введен неверно.")
@@ -178,6 +208,7 @@ elif st.session_state.role == "Teacher":
         st.markdown("---")
         if st.button("Выйти", type="primary"):
             st.session_state.role = None
+            st.query_params.clear()
             st.rerun()
 
     if menu_selection == "Быстрые задачи":
@@ -186,7 +217,6 @@ elif st.session_state.role == "Teacher":
             nt = st.text_input("Название экзамена")
             nd = st.text_area("Описание задачи (Поддерживает HTML)")
             
-            # Поле для времени
             t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
             
             col_c1, col_c2 = st.columns([3, 1])
@@ -237,7 +267,6 @@ elif st.session_state.role == "Teacher":
         crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
         
         st.markdown("### 3. Настройки экзамена")
-        # Поле для времени MYP
         t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=60, help="0 = без ограничений")
         strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
 
@@ -282,16 +311,6 @@ elif st.session_state.role == "Teacher":
 
 # СТУДЕНТ
 elif st.session_state.role == "Student":
-    import streamlit.components.v1 as components 
-    
-    # Инициализация черновика в памяти платформы
-    if "student_draft" not in st.session_state:
-        st.session_state.student_draft = ""
-        
-    def update_draft():
-        # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
-        st.session_state.student_draft = st.session_state.essay_input
-    
     exam = st.session_state.current_exam
     is_time_up = False
     remaining_seconds = 0
@@ -320,7 +339,9 @@ elif st.session_state.role == "Student":
             if st.button("Выйти на главную", type="secondary"):
                 st.session_state.role = None
                 st.session_state.exam_submitted = False
-                st.session_state.student_draft = "" # Очищаем черновик после успешной сдачи
+                st.session_state.student_draft = "" # Очищаем черновик
+                st.session_state.exam_end_time = None
+                st.query_params.clear() # Очищаем URL
                 st.rerun()
                 
         else:
@@ -361,8 +382,12 @@ elif st.session_state.role == "Student":
                     else: 
                         st.warning("Пожалуйста, заполните имя и напишите ответ.")
             with col_bt2:
+                # Очистка при ручном выходе
                 if st.button("Выйти на главную", type="secondary"):
                     st.session_state.role = None
+                    st.session_state.student_draft = "" # Полностью удаляем текст
+                    st.session_state.exam_end_time = None 
+                    st.query_params.clear() # Очищаем URL
                     st.rerun()
 
     with col_right:
