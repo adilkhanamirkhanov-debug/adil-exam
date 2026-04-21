@@ -11,15 +11,19 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    margin-top: 40px; /* Еще чуть ниже */
+    margin-top: 40px;
+    animation: logoPulse 3s ease-in-out infinite;
+}
+@keyframes logoPulse {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(161,140,209,0.6)); }
+    50% { filter: drop-shadow(0 0 28px rgba(251,194,235,0.9)); }
 }
 
 /* 3. КНОПКА САЙДБАРА (ФЛАЖОК) */
-/* Делаем ее заметной и опускаем ниже хедера */
 button[kind="header"] {
-    top: 25px !important; /* Опускаем от верхнего края */
+    top: 25px !important;
     left: 20px !important;
-    background-color: #6a11cb !important; /* Яркий цвет */
+    background-color: #6a11cb !important;
     color: white !important;
     border-radius: 8px !important;
     padding: 5px !important;
@@ -48,11 +52,12 @@ header[data-testid="stHeader"] {
 h1, h2, h3, p, label, span {
     color: #ffffff !important;
 }
-/* ВЕСЬ САЙДБАР: Темный фон */
+
+/* ВЕСЬ САЙДБАР: Темный фон с анимированной границей */
 [data-testid="stSidebar"] {
-    background-color: #480e57 !important; /* Очень темный фиолетовый */
+    background: linear-gradient(180deg, #3a0f5c 0%, #480e57 60%, #2b1055 100%) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: inset -1px 0 0 rgba(123, 227, 255, 0.25), 0 0 28px rgba(106, 17, 203, 0.35) !important;
+    box-shadow: inset -1px 0 0 rgba(123, 227, 255, 0.25), 0 0 28px rgba(106, 17, 203, 0.5) !important;
 }
 
 /* КОНТЕЙНЕРЫ ВНУТРИ САЙДБАРА */
@@ -60,7 +65,7 @@ h1, h2, h3, p, label, span {
     background-color: transparent !important;
 }
 
-/* ПОЛЯ ВВОДА В САЙДБАРЕ (Login/Password) */
+/* ПОЛЯ ВВОДА В САЙДБАРЕ */
 [data-testid="stSidebar"] .stTextInput>div>div>input {
     background-color: rgba(255, 255, 255, 0.05) !important;
     color: #0a0a0a !important;
@@ -76,38 +81,45 @@ h1, h2, h3, p, label, span {
 
 /* КНОПКА В САЙДБАРЕ */
 [data-testid="stSidebar"] .stButton>button {
-    background-color: #4b0082 !important; /* Чуть темнее основной кнопки */
+    background-color: #4b0082 !important;
     border: 1px solid #6a11cb !important;
 }
 
-/* ТЕХНО-СТИЛЬ ДЛЯ МЕНЮ */
+/* НАВИГАЦИОННЫЕ ПУНКТЫ МЕНЮ (radio) */
 [data-testid="stSidebar"] [role="radiogroup"] > label {
-    background: linear-gradient(90deg, rgba(123, 227, 255, 0.14), rgba(106, 17, 203, 0.12)) !important;
-    border: 1px solid rgba(123, 227, 255, 0.35) !important;
+    background: linear-gradient(90deg, rgba(123, 227, 255, 0.10), rgba(106, 17, 203, 0.10)) !important;
+    border: 1px solid rgba(123, 227, 255, 0.30) !important;
     border-radius: 12px !important;
-    padding: 10px 12px !important;
-    margin-bottom: 8px !important;
-    box-shadow: 0 0 14px rgba(123, 227, 255, 0.14) !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    box-shadow: 0 0 10px rgba(123, 227, 255, 0.10) !important;
     transition: all 0.25s ease !important;
+    cursor: pointer !important;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-    transform: translateX(4px) !important;
-    border-color: rgba(251, 194, 235, 0.75) !important;
-    box-shadow: 0 0 18px rgba(251, 194, 235, 0.24) !important;
+    transform: translateX(6px) !important;
+    border-color: rgba(251, 194, 235, 0.80) !important;
+    box-shadow: 0 0 20px rgba(251, 194, 235, 0.30) !important;
+    background: linear-gradient(90deg, rgba(251,194,235,0.12), rgba(161,140,209,0.12)) !important;
 }
-/* ЦВЕТ ТЕКСТА ПРИ ВВОДЕ (ВЕЗДЕ: в центре и в сайдбаре) */
+
+[data-testid="stSidebar"] [role="radiogroup"] [aria-checked="true"] {
+    border-color: rgba(251, 194, 235, 1.0) !important;
+    background: linear-gradient(90deg, rgba(251,194,235,0.20), rgba(106,17,203,0.20)) !important;
+    box-shadow: 0 0 18px rgba(251,194,235,0.35) !important;
+}
+
+/* ЦВЕТ ТЕКСТА ПРИ ВВОДЕ */
 input, textarea {
-    color: #0a0a0a !important; /* Текст, который пишет пользователь */
+    color: #0a0a0a !important;
     -webkit-text-fill-color: #0a0a0a !important;
 }
 
-/* Цвет подсказок (Placeholder) */
 input::placeholder, textarea::placeholder {
     color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Фикс для конкретных элементов Streamlit, чтобы текст точно был белым */
 [data-testid="stSidebar"] .stTextInput>div>div>input {
     color: white !important;
 }
@@ -117,55 +129,69 @@ input::placeholder, textarea::placeholder {
     background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Цвет текста в выпадающих списках и других элементах ввода */
 .stSelectbox div[data-baseweb="select"] > div {
     color: #0a0a0a !important;
 }
-/* ОБЩИЕ ПРАВИЛА ДЛЯ КНОПОК */
+
+/* КНОПКИ */
 .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {
     border-radius: 12px !important;
     transition: all 0.3s ease !important;
     width: 100%;
 }
 
-/* ПЕРВИЧНЫЕ КНОПКИ (Фиолетовые: Сохранить, Войти, Отправить) */
 button[kind^="primary"] {
-    background-color: #6a11cb !important;
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%) !important;
     color: white !important;
     border: none !important;
+    box-shadow: 0 4px 15px rgba(106,17,203,0.4) !important;
 }
 button[kind^="primary"]:hover {
-    background-color: #8934eb !important; 
+    background: linear-gradient(135deg, #8934eb 0%, #4a90f5 100%) !important;
     transform: translateY(-3px) !important;
+    box-shadow: 0 8px 20px rgba(106,17,203,0.6) !important;
 }
 
-/* ВТОРИЧНЫЕ КНОПКИ (Красные: Генерация кода, Выход) */
 button[kind^="secondary"] {
-    background-color: #ff4b4b !important;
-    color: white !important;
-    border: none !important;
+    background: rgba(255,255,255,0.07) !important;
+    color: #e8d9ff !important;
+    border: 1px solid rgba(161,140,209,0.4) !important;
 }
 button[kind^="secondary"]:hover {
-    background-color: #d43c3c !important; 
-    transform: translateY(-3px) !important;
+    background: rgba(161,140,209,0.18) !important;
+    border-color: rgba(251,194,235,0.7) !important;
+    transform: translateY(-2px) !important;
 }
-/* СТИЛИ ДЛЯ БЛОКОВ С ОТЗЫВАМИ И УВЕДОМЛЕНИЯМИ (st.info, st.success) */
+
+/* TASK TYPE CARD BUTTONS */
+.task-type-card {
+    padding: 18px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 8px;
+}
+.task-type-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(106,17,203,0.4);
+}
+
+/* ALERT BLOCKS */
 [data-testid="stAlert"] {
-    background-color: rgba(255, 255, 255, 0.05) !important; /* Полупрозрачный темный фон */
+    background-color: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 10px !important;
 }
 
-/* Цвет текста внутри этих блоков делаем бело-серым */
 [data-testid="stAlert"] * {
     color: #e0e0e0 !important; 
 }
 
-/* Цвет текста внутри раскрывающихся списков (Expander в кабинете учителя) */
 [data-testid="stExpanderDetails"] * {
     color: #e0e0e0 !important;
 }
-/* СТИЛИ ДЛЯ ТАБЛИЦ ИЗ WORD */
+
+/* TABLES */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -187,14 +213,16 @@ img {
     height: auto;
     border-radius: 8px;
 }
-/* СВЕТЛЫЙ ТЕКСТ ДЛЯ ОТЗЫВОВ ИИ И СПИСКОВ */
+
+/* MARKDOWN TEXT */
 .stMarkdown p, .stMarkdown li, .stMarkdown span {
     color: #e0e0e0 !important; 
     line-height: 1.6;
 }
-/* БЛОКИ С НЕЗАВИСИМОЙ ПРОКРУТКОЙ ДЛЯ ЗАДАЧ И КРИТЕРИЕВ */
+
+/* SCROLLABLE CONTAINERS */
 .scrollable-container {
-    max-height: 55vh; /* Занимает 55% высоты экрана */
+    max-height: 55vh;
     overflow-y: auto;
     padding: 20px;
     background-color: rgba(255, 255, 255, 0.03);
@@ -204,23 +232,16 @@ img {
     color: #e0e0e0;
 }
 
-/* Настройка внешнего вида ползунка прокрутки */
-.scrollable-container::-webkit-scrollbar {
-    width: 8px;
+.scrollable-container::-webkit-scrollbar { width: 8px; }
+.scrollable-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 8px; }
+.scrollable-container::-webkit-scrollbar-thumb { background-color: #6a11cb; border-radius: 8px; }
+.scrollable-container::-webkit-scrollbar-thumb:hover { background-color: #8934eb; }
+
+/* DATAFRAME / METRIC */
+[data-testid="stMetricValue"] {
+    color: #fbc2eb !important;
+    font-size: 28px !important;
 }
-.scrollable-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-}
-.scrollable-container::-webkit-scrollbar-thumb {
-    background-color: #6a11cb;
-    border-radius: 8px;
-}
-.scrollable-container::-webkit-scrollbar-thumb:hover {
-    background-color: #8934eb;
-}
-/* Светлый текст для отзывов ИИ */
-.stMarkdown p, .stMarkdown li, .stMarkdown span {
-    color: #e0e0e0 !important; 
-    line-height: 1.6;
+[data-testid="stMetricLabel"] {
+    color: rgba(255,255,255,0.7) !important;
 }
