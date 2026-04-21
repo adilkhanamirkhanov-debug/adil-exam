@@ -127,10 +127,7 @@ def register_teacher(username, email, password):
         return False, "Имя пользователя должно содержать минимум 3 символа."
     if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if (
-        not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match)
-        or ".." in email_for_match
-    ):
+    if ".." in email_for_match or not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match):
         return False, "Введите корректный email."
 
     try:
@@ -160,7 +157,9 @@ def save_teacher_exam(code, exam_type, title, desc, criteria, strictness, time_l
     c = db_conn.cursor()
     c.execute("SELECT teacher_id FROM exams_v3 WHERE code=?", (code,))
     existing = c.fetchone()
-    if existing and existing[0] not in (None, teacher_id):
+    if existing and existing[0] is None:
+        return False, "Этот код уже занят унаследованной задачей. Используйте новый код."
+    if existing and existing[0] != teacher_id:
         return False, "Этот код уже занят другим учителем. Сгенерируйте новый."
 
     if existing:
@@ -337,7 +336,7 @@ if st.session_state.role is None:
     with col2:
         st.markdown("<p style='text-align: center; opacity: 0.7;'>Выберите формат сдачи и введите код доступа</p>", unsafe_allow_html=True)
         
-        student_mode = st.radio("Режим экзамена:", ["Стандартный экзамен", "Экзамен MYP", "Кастомная задача"], horizontal=True)
+        student_mode = st.radio("Режим экзамена:", ["Стандартный экзамен", "Экзамен MYP", "Кастомные задачи"], horizontal=True)
         access_code = st.text_input("Код", placeholder="Например: MYP-1A2B3", label_visibility="collapsed")
         
         if st.button("Начать экзамен", type="primary"):
