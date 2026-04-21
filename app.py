@@ -38,6 +38,9 @@ if "exam_end_time" not in st.session_state: st.session_state.exam_end_time = Non
 if "student_draft" not in st.session_state: st.session_state.student_draft = ""
 if "teacher_id" not in st.session_state: st.session_state.teacher_id = None
 if "teacher_username" not in st.session_state: st.session_state.teacher_username = None
+if "task_step" not in st.session_state: st.session_state.task_step = 1
+if "task_type_sel" not in st.session_state: st.session_state.task_type_sel = None
+if "ai_criteria_result" not in st.session_state: st.session_state.ai_criteria_result = ""
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
@@ -92,6 +95,7 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
+            is_admin INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -99,6 +103,10 @@ def init_db():
     exam_columns = [row[1] for row in c.fetchall()]
     if "teacher_id" not in exam_columns:
         c.execute("ALTER TABLE exams_v3 ADD COLUMN teacher_id INTEGER")
+    c.execute("PRAGMA table_info(teachers)")
+    teacher_columns = [row[1] for row in c.fetchall()]
+    if "is_admin" not in teacher_columns:
+        c.execute("ALTER TABLE teachers ADD COLUMN is_admin INTEGER DEFAULT 0")
     conn.commit()
     return conn
 
@@ -120,7 +128,7 @@ def read_file(uploaded_file):
             return "Ошибка чтения файла. Убедитесь, что это не поврежденный файл."
     return ""
 
-def register_teacher(username, email, password):
+def register_teacher(username, email, password, admin_code=""):
     password_clean = password.strip()
     email_clean = email.strip()
     email_for_match = email_clean.lower()
@@ -132,14 +140,18 @@ def register_teacher(username, email, password):
     if not re.fullmatch(EMAIL_VALIDATION_PATTERN, email_for_match):
         return False, "Введите корректный email."
 
+    is_admin_code = st.secrets.get("ADMIN_REGISTRATION_CODE", "ADILEDU-ADMIN-2024")
+    is_admin = 1 if admin_code.strip() == is_admin_code else 0
+
     try:
         c = db_conn.cursor()
         c.execute(
-            "INSERT INTO teachers (username, password_hash, email) VALUES (?,?,?)",
-            (username.strip(), generate_password_hash(password_clean), email_clean)
+            "INSERT INTO teachers (username, password_hash, email, is_admin) VALUES (?,?,?,?)",
+            (username.strip(), generate_password_hash(password_clean), email_clean, is_admin)
         )
         db_conn.commit()
-        return True, "Регистрация успешна! Теперь вы можете войти."
+        role_msg = " (Администратор)" if is_admin else ""
+        return True, f"Регистрация успешна{role_msg}! Теперь вы можете войти."
     except sqlite3.IntegrityError:
         return False, "Пользователь с таким username/email уже существует."
 
@@ -147,7 +159,7 @@ def authenticate_teacher(login_input, password):
     login_value = login_input.strip()
     c = db_conn.cursor()
     c.execute(
-        "SELECT id, username, password_hash FROM teachers WHERE username=? OR lower(email)=?",
+        "SELECT id, username, password_hash, is_admin FROM teachers WHERE username=? OR lower(email)=?",
         (login_value, login_value.lower())
     )
     teacher = c.fetchone()
@@ -270,12 +282,68 @@ def grade_essay(title, desc, criteria, strictness, essay, exam_type):
     )
     return response.choices[0].message.content
 
+def generate_criteria_with_ai(title, desc, exam_type, subject="", difficulty="Medium"):
+    """Ask AI to generate assessment criteria/rubric for a given task."""
+    type_instruction = ""
+    if exam_type == "MYP":
+        type_instruction = f"Use the official IB MYP rubric format (Criteria A/B/C/D, bands 1-2, 3-4, 5-6, 7-8). Subject area: {subject}."
+    elif exam_type == "Quick":
+        type_instruction = "Use a simple 100-point rubric with 3-4 clear criteria."
+    else:
+        type_instruction = "Create a detailed rubric with 4-5 criteria, each scored on a 0-10 scale."
+
+    prompt = f"""You are an expert educator. Generate clear, specific assessment criteria/success criteria for the following exam task.
+
+Task Title: {title}
+Task Description: {desc}
+Exam Type: {exam_type}
+Difficulty Level: {difficulty}
+{type_instruction}
+
+Requirements:
+- Write criteria in the SAME LANGUAGE as the task description
+- Be specific and measurable
+- Include what a top-scoring answer must demonstrate
+- Format as a clean rubric table or bullet list
+
+Generate the criteria now:"""
+
+    response = client.chat.completions.create(
+        model="openai/gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4
+    )
+    return response.choices[0].message.content
+
+def improve_criteria_with_ai(existing_criteria, exam_type):
+    """Ask AI to improve/refine existing criteria."""
+    prompt = f"""You are an expert educator. Improve and refine the following assessment criteria to make them clearer, more specific, and better aligned with best practices for {exam_type} assessment.
+
+Existing Criteria:
+{existing_criteria}
+
+Improvements to make:
+- Make language more precise and measurable
+- Add specific descriptors for each performance level
+- Remove vague or redundant language
+- Ensure criteria are student-friendly and understandable
+- Keep the SAME LANGUAGE as the original criteria
+
+Return only the improved criteria:"""
+
+    response = client.chat.completions.create(
+        model="openai/gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    return response.choices[0].message.content
+
 # --- 6. NAVIGATION ---
 
 # ГЛАВНЫЙ ЭКРАН (ВХОД)
 if st.session_state.role is None:
     with st.sidebar:
-        st.markdown("### Teacher Space")
+        st.markdown("### 🔐 Teacher Space")
         login_tab, register_tab = st.tabs(["Вход", "Регистрация"])
         with login_tab:
             t_user = st.text_input("Username или Email")
@@ -283,10 +351,14 @@ if st.session_state.role is None:
             if st.button("Login", type="primary"):
                 teacher = authenticate_teacher(t_user, t_pass)
                 if teacher:
-                    st.session_state.role = "Teacher"
+                    # teacher = (id, username, password_hash, is_admin)
+                    if teacher[3] == 1:
+                        st.session_state.role = "Admin"
+                    else:
+                        st.session_state.role = "Teacher"
                     st.session_state.teacher_id = teacher[0]
                     st.session_state.teacher_username = teacher[1]
-                    st.query_params.clear() # Очищаем URL при входе учителя
+                    st.query_params.clear()
                     st.rerun()
                 else:
                     st.error("Неверный логин или пароль.")
@@ -294,14 +366,106 @@ if st.session_state.role is None:
             new_user = st.text_input("Новый username")
             new_email = st.text_input("Email")
             new_pass = st.text_input("Новый пароль", type="password")
+            admin_code_input = st.text_input("Код администратора (необязательно)", type="password",
+                                              help="Если вы получили специальный код — введите его. Это даст права администратора.")
+            if admin_code_input:
+                st.caption("⚠️ Правильный код даст вам права администратора платформы.")
             if st.button("Создать аккаунт", type="secondary"):
-                success, message = register_teacher(new_user, new_email, new_pass)
+                success, message = register_teacher(new_user, new_email, new_pass, admin_code_input)
                 if success:
                     st.success(message)
                 else:
                     st.warning(message)
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    # Animated brain network canvas
+    components.html("""
+<style>
+  #brain-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+</style>
+<canvas id="brain-canvas"></canvas>
+<script>
+(function(){
+  const canvas = document.getElementById('brain-canvas');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
+
+  const NODE_COUNT = 55;
+  const MAX_DIST = 160;
+  const nodes = [];
+
+  for (let i = 0; i < NODE_COUNT; i++) {
+    nodes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45,
+      r: Math.random() * 3 + 2,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const t = Date.now() / 1000;
+
+    // Draw edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < MAX_DIST) {
+          const alpha = (1 - dist / MAX_DIST) * 0.35;
+          const grad = ctx.createLinearGradient(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+          grad.addColorStop(0, `rgba(161,140,209,${alpha})`);
+          grad.addColorStop(1, `rgba(123,227,255,${alpha})`);
+          ctx.beginPath();
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1;
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw nodes
+    for (const n of nodes) {
+      n.pulse += 0.025;
+      const glow = 0.55 + 0.45 * Math.sin(n.pulse);
+      const radius = n.r + 1.5 * Math.sin(n.pulse);
+
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, radius * 3.5);
+      grad.addColorStop(0, `rgba(251,194,235,${glow * 0.95})`);
+      grad.addColorStop(0.5, `rgba(161,140,209,${glow * 0.5})`);
+      grad.addColorStop(1, `rgba(161,140,209,0)`);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius * 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(251,194,235,${glow})`;
+      ctx.fill();
+
+      // Move
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < 0 || n.x > W) n.vx *= -1;
+      if (n.y < 0 || n.y > H) n.vy *= -1;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+""", height=0)
+
     st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
     st.markdown(
         """
@@ -382,25 +546,38 @@ elif st.session_state.role == "Teacher":
     teacher_username = st.session_state.teacher_username
 
     with st.sidebar:
-        st.markdown("## Кабинет учителя")
-        st.markdown(f"👋 Добро пожаловать, **{teacher_username}**")
-        menu_selection = st.radio("Навигация:", ["Дашборд", "Создать задачу", "Результаты"])
+        st.markdown(f"""
+        <div style="text-align:center; padding: 12px 0 8px 0;">
+            <div style="font-size:36px;">🧑‍🏫</div>
+            <div style="font-size:15px; color:#fbc2eb; font-weight:700;">{teacher_username}</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5);">Teacher Account</div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
-        if st.button("Выйти", type="primary"):
+        menu_selection = st.radio(
+            "Навигация:",
+            ["📊 Дашборд", "⚡ Создать задачу", "📋 Результаты"],
+            label_visibility="collapsed"
+        )
+        menu_selection = menu_selection.split(" ", 1)[-1].strip()
+        st.markdown("---")
+        if st.button("🚪 Выйти", type="primary"):
             st.session_state.role = None
             st.session_state.teacher_id = None
             st.session_state.teacher_username = None
+            st.session_state.task_step = 1
+            st.session_state.task_type_sel = None
             st.query_params.clear()
             st.rerun()
 
     if menu_selection == "Дашборд":
-        st.header("Профиль и статистика")
+        st.header("📊 Профиль и статистика")
         stats, total_submissions = get_teacher_stats(teacher_id)
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Quick задач", stats.get("Quick", 0))
-        c2.metric("MYP задач", stats.get("MYP", 0))
-        c3.metric("Custom задач", stats.get("Custom", 0))
-        c4.metric("Сданных работ", total_submissions)
+        c1.metric("⚡ Quick задач", stats.get("Quick", 0))
+        c2.metric("🎓 MYP задач", stats.get("MYP", 0))
+        c3.metric("🛠 Custom задач", stats.get("Custom", 0))
+        c4.metric("📨 Сданных работ", total_submissions)
         st.info("Здесь отображаются только ваши экзамены и связанные результаты.")
         st.markdown("### Мои экзамены")
         all_teacher_exams = get_teacher_exams(teacher_id)
@@ -410,131 +587,176 @@ elif st.session_state.role == "Teacher":
             st.markdown(f"- **{exam_title}** (`{exam_type}`) — код: `{exam_code}`, время: {exam_time} мин.")
 
     elif menu_selection == "Создать задачу":
-        st.header("⚡ Техно-конструктор задач")
-        st.markdown("Соберите нужный формат в одном месте: быстрый, MYP или кастомный.")
-        task_variant = st.radio(
-            "Выберите вариант задачи:",
-            ["Быстрая (Quick)", "MYP", "Кастомная (Custom)"],
-            horizontal=True
-        )
+        st.header("⚡ Конструктор задач")
 
-        if task_variant == "Быстрая (Quick)":
-            with st.form("quick_exam"):
-                nt = st.text_input("Название экзамена")
-                nd = st.text_area("Описание задачи (Поддерживает HTML)")
-                
-                t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
-                
-                col_c1, col_c2 = st.columns([3, 1])
-                with col_c1:
-                    nc = st.text_input("Код доступа", value=st.session_state.gen_code)
-                with col_c2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.form_submit_button("Сгенерировать код", type="secondary"):
-                        st.session_state.gen_code = generate_random_code("FAST")
-                        st.rerun()
-                        
-                ncr = st.text_area("Критерии оценивания (Текст)")
-                
-                if st.form_submit_button("Сохранить задачу", type="primary"):
-                    if nc and nt:
-                        saved, save_message = save_teacher_exam(nc, "Quick", nt, nd, ncr, 5.0, t_limit, teacher_id)
-                        if saved:
-                            st.success(f"Задача сохранена! Код: {nc}")
-                        else:
-                            st.error(save_message)
-                    else:
-                        st.warning("Укажите название и код доступа.")
+        # ── STEP 1: choose task type ─────────────────────────────────────────
+        st.markdown("### Шаг 1 — Выберите тип задачи")
+        type_cols = st.columns(3)
+        type_map = {
+            "⚡ Quick": ("Quick", "Быстрое эссе / краткий ответ. Одна рубрика, простая настройка."),
+            "🎓 MYP": ("MYP", "Официальный формат IB MYP с предметными критериями A/B/C/D."),
+            "🛠 Custom": ("Custom", "Полностью кастомная задача с загрузкой условий и рубрик."),
+        }
+        for col, (label, (val, tip)) in zip(type_cols, type_map.items()):
+            with col:
+                selected_style = "background:rgba(161,140,209,0.25); border:2px solid #a18cd1;" if st.session_state.task_type_sel == val else "background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.15);"
+                st.markdown(f"""<div style="padding:16px; border-radius:14px; {selected_style} margin-bottom:8px;">
+                    <b style="font-size:17px;">{label}</b><br>
+                    <span style="font-size:12px; opacity:0.75;">{tip}</span>
+                </div>""", unsafe_allow_html=True)
+                if st.button(f"Выбрать {val}", key=f"sel_{val}", type="secondary"):
+                    st.session_state.task_type_sel = val
+                    st.session_state.ai_criteria_result = ""
+                    st.rerun()
 
-        elif task_variant == "MYP":
-            nt = st.text_input("Название MYP Задачи")
-            
+        task_variant = st.session_state.task_type_sel
+        if task_variant is None:
+            st.info("👆 Нажмите на кнопку «Выбрать», чтобы начать создание задачи.")
+        else:
+            st.markdown(f"---\n### Шаг 2 — Основная информация  *(тип: {task_variant})*")
+
+            # ── Code generation row ──────────────────────────────────────────
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
-                nc = st.text_input("Код доступа MYP", value=st.session_state.gen_code)
+                nc = st.text_input("🔑 Код доступа", value=st.session_state.gen_code, key="wizard_code")
             with col_c2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Сгенерировать MYP-код", type="secondary"):
-                    st.session_state.gen_code = generate_random_code("MYP")
+                prefix_map = {"Quick": "FAST", "MYP": "MYP", "Custom": "CSTM"}
+                if st.button("🎲 Сгенерировать код", type="secondary"):
+                    st.session_state.gen_code = generate_random_code(prefix_map[task_variant])
                     st.rerun()
 
-            st.markdown("### 1. Условие задачи и Предмет")
-            myp_subject = st.selectbox("Специфика предмета MYP", [
-                "Не указано", "Науки (Sciences)", "Математика (Mathematics)", 
-                "Язык и литература", "Приобретение языка", "Индивидуумы и общества", 
-                "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
-            ])
-            
-            task_file = st.file_uploader("Загрузить файл с условием (.docx или .txt)", type=["docx", "txt"])
-            task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
-            
-            st.markdown("### 2. Дополнительные критерии (опционально)")
-            crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
-            
-            st.markdown("### 3. Настройки экзамена")
-            t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=60, help="0 = без ограничений")
-            strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
+            nt = st.text_input("📌 Название задачи", key="wizard_title")
 
-            if st.button("Опубликовать MYP задачу", type="primary"):
-                if nt and nc:
-                    desc_content = read_file(task_file)
-                    questions_html = f"<br><h3>Дополнительные вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
-                    final_desc = desc_content + questions_html
-                    
-                    subject_prefix = f"[ОФИЦИАЛЬНЫЙ ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
-                    final_crit = subject_prefix + read_file(crit_file)
-                    
-                    if not final_desc.strip():
-                        final_desc = "Смотрите вопросы."
-                    if not final_crit.strip():
-                        final_crit = "Оценивать по стандартам MYP."
+            # ── Type-specific fields ─────────────────────────────────────────
+            if task_variant == "MYP":
+                st.markdown("### Шаг 3 — Предмет и условие")
+                myp_subject = st.selectbox("🏫 Предмет MYP", [
+                    "Не указано", "Науки (Sciences)", "Математика (Mathematics)",
+                    "Язык и литература", "Приобретение языка", "Индивидуумы и общества",
+                    "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
+                ])
+                task_file = st.file_uploader("📎 Файл с условием (.docx / .txt)", type=["docx", "txt"])
+                task_questions = st.text_area("❓ Дополнительные вопросы (каждый с новой строки)", height=130)
+                crit_file = st.file_uploader("📎 Файл с рубрикой (необязательно)", type=["docx", "txt"])
+                c_desc = ""
+                c_file = None
+            else:
+                st.markdown("### Шаг 3 — Условие задачи")
+                c_desc = st.text_area("📝 Текст задачи (поддерживает HTML)", height=130, key="wizard_desc")
+                c_file = st.file_uploader("📎 Загрузить файл с условием (.docx / .txt)", type=["docx", "txt"])
+                myp_subject = "Не указано"
+                task_questions = ""
+                task_file = None
+                crit_file = None
 
-                    saved, save_message = save_teacher_exam(nc, "MYP", nt, final_desc, final_crit, float(strictness), t_limit, teacher_id)
+            # ── Criteria section with AI assist ─────────────────────────────
+            st.markdown("### Шаг 4 — Критерии оценивания")
+            st.markdown("Напишите критерии вручную или используйте кнопки AI-помощника:")
+
+            ai_col1, ai_col2, ai_col3 = st.columns(3)
+            with ai_col1:
+                if st.button("🤖 Сгенерировать критерии (AI)", type="secondary"):
+                    task_title_for_ai = nt.strip() or "Без названия"
+                    task_desc_for_ai = (c_desc or task_questions or "Описание не указано").strip()
+                    with st.spinner("AI генерирует критерии..."):
+                        st.session_state.ai_criteria_result = generate_criteria_with_ai(
+                            task_title_for_ai, task_desc_for_ai, task_variant,
+                            subject=myp_subject
+                        )
+                    st.rerun()
+            with ai_col2:
+                if st.button("✨ Улучшить критерии (AI)", type="secondary"):
+                    existing = st.session_state.ai_criteria_result.strip()
+                    if existing:
+                        with st.spinner("AI улучшает критерии..."):
+                            st.session_state.ai_criteria_result = improve_criteria_with_ai(existing, task_variant)
+                        st.rerun()
+                    else:
+                        st.warning("Сначала введите или сгенерируйте критерии.")
+            with ai_col3:
+                rubric_options = {
+                    "Quick": "### Критерии оценивания (100 баллов)\n- **Содержание (40 б):** Полнота раскрытия темы\n- **Структура (30 б):** Логичность, введение и заключение\n- **Язык (30 б):** Грамотность и стиль изложения",
+                    "MYP": "### Критерий A: Знание и понимание (0-8)\n- 7-8: Полное и глубокое знание\n- 5-6: Хорошее знание с некоторыми пробелами\n- 3-4: Базовое знание\n- 1-2: Ограниченное знание\n\n### Критерий B: Анализ (0-8)\n- 7-8: Развёрнутый анализ\n- 5-6: Достаточный анализ\n- 3-4: Поверхностный анализ\n- 1-2: Минимальный анализ",
+                    "Custom": "### Рубрика оценивания (10 баллов за каждый критерий)\n- **Понимание темы (10 б)**\n- **Аргументация (10 б)**\n- **Структура (10 б)**\n- **Язык и оформление (10 б)**\n- **Оригинальность (10 б)**",
+                }
+                if st.button("📋 Шаблон рубрики", type="secondary"):
+                    st.session_state.ai_criteria_result = rubric_options.get(task_variant, "")
+                    st.rerun()
+
+            if st.session_state.ai_criteria_result:
+                st.info("✅ AI сгенерировал критерии ниже. Вы можете отредактировать их.")
+
+            crit_manual = st.text_area(
+                "Критерии оценивания",
+                value=st.session_state.ai_criteria_result,
+                height=220,
+                key="wizard_criteria",
+                placeholder="Введите критерии вручную или используйте кнопки AI выше..."
+            )
+
+            # ── Settings ─────────────────────────────────────────────────────
+            st.markdown("### Шаг 5 — Настройки")
+            set_col1, set_col2 = st.columns(2)
+            with set_col1:
+                st.markdown("**⏱ Время на выполнение**")
+                time_preset_cols = st.columns(5)
+                time_presets = [0, 15, 30, 45, 60]
+                time_labels = ["∞", "15м", "30м", "45м", "60м"]
+                for tp_col, tp_val, tp_lab in zip(time_preset_cols, time_presets, time_labels):
+                    with tp_col:
+                        if st.button(tp_lab, key=f"tp_{tp_val}", type="secondary"):
+                            st.session_state[f"wizard_time_val"] = tp_val
+                t_limit = st.number_input(
+                    "Минуты (0 = без ограничений)",
+                    min_value=0, max_value=300,
+                    value=st.session_state.get("wizard_time_val", 45),
+                    help="0 = без ограничений"
+                )
+            with set_col2:
+                st.markdown("**📊 Строгость оценивания**")
+                diff_cols = st.columns(3)
+                diff_map = {"🟢 Мягко": 3, "🟡 Средне": 5, "🔴 Строго": 8}
+                for d_col, (d_lab, d_val) in zip(diff_cols, diff_map.items()):
+                    with d_col:
+                        if st.button(d_lab, key=f"diff_{d_val}", type="secondary"):
+                            st.session_state["wizard_strict_val"] = d_val
+                strictness = st.slider(
+                    "Строгость (1-10)",
+                    min_value=1, max_value=10,
+                    value=st.session_state.get("wizard_strict_val", 5)
+                )
+
+            st.markdown("---")
+            if st.button("🚀 Опубликовать задачу", type="primary"):
+                if not nt.strip():
+                    st.warning("Укажите название задачи.")
+                elif not nc.strip():
+                    st.warning("Укажите код доступа.")
+                else:
+                    if task_variant == "MYP":
+                        desc_content = read_file(task_file)
+                        questions_html = f"<br><h3>Вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
+                        final_desc = desc_content + questions_html or "Смотрите вопросы."
+                        subject_prefix = f"[ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
+                        final_crit = subject_prefix + (crit_manual.strip() or read_file(crit_file)) or "Оценивать по стандартам MYP."
+                    else:
+                        file_desc = read_file(c_file)
+                        desc_parts = [p for p in [c_desc.strip(), file_desc.strip()] if p]
+                        final_desc = "<br>".join(desc_parts) or "Описание не указано."
+                        final_crit = crit_manual.strip() or "Оценить по содержательности, структуре и аргументации."
+
+                    saved, save_message = save_teacher_exam(nc, task_variant, nt, final_desc, final_crit, float(strictness), t_limit, teacher_id)
                     if saved:
-                        st.success(f"MYP Экзамен опубликован! Код доступа: {nc}")
+                        st.success(f"✅ Задача опубликована! Код доступа: **{nc}**")
+                        st.session_state.task_type_sel = None
+                        st.session_state.ai_criteria_result = ""
+                        st.session_state.gen_code = ""
                     else:
                         st.error(save_message)
-                else:
-                    st.warning("Пожалуйста, введите название и сгенерируйте код.")
-
-        else:
-            with st.form("custom_exam"):
-                c_title = st.text_input("Название кастомной задачи")
-                c_desc = st.text_area("Описание задачи")
-                c_file = st.file_uploader("Файл с условием (.docx/.txt)", type=["docx", "txt"])
-                c_crit = st.text_area("Критерии оценивания")
-                c_crit_file = st.file_uploader("Файл с критериями (.docx/.txt)", type=["docx", "txt"])
-                c_time = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
-                c_strict = st.slider("Уровень строгости", min_value=1, max_value=10, value=5)
-                c_code = st.text_input("Код доступа", value=st.session_state.gen_code)
-                if st.form_submit_button("Сгенерировать код", type="secondary"):
-                    st.session_state.gen_code = generate_random_code("CSTM")
-                    st.rerun()
-                publish_custom = st.form_submit_button("Сохранить кастомную задачу", type="primary")
-
-                if publish_custom:
-                    if c_title and c_code:
-                        file_desc = read_file(c_file)
-                        file_crit = read_file(c_crit_file)
-                        desc_parts = [part for part in [c_desc.strip(), file_desc.strip()] if part]
-                        crit_parts = [part for part in [c_crit.strip(), file_crit.strip()] if part]
-                        final_desc = "<br>".join(desc_parts)
-                        final_crit = "\n".join(crit_parts)
-                        if not final_desc:
-                            final_desc = "Описание не указано."
-                        if not final_crit:
-                            final_crit = "Оценить по содержательности, структуре и аргументации."
-
-                        saved, save_message = save_teacher_exam(c_code, "Custom", c_title, final_desc, final_crit, float(c_strict), c_time, teacher_id)
-                        if saved:
-                            st.success(f"Кастомная задача сохранена! Код: {c_code}")
-                        else:
-                            st.error(save_message)
-                    else:
-                        st.warning("Укажите название и код доступа.")
 
     elif menu_selection == "Результаты":
-        st.header("Результаты студентов")
+        st.header("📋 Результаты студентов")
         c = db_conn.cursor()
         c.execute("SELECT title FROM exams_v3 WHERE teacher_id=?", (teacher_id,))
         teacher_titles = [row[0] for row in c.fetchall()]
@@ -554,6 +776,124 @@ elif st.session_state.role == "Teacher":
                     st.info(f"**Оценка ИИ:**\n{r[3]}")
         else:
             st.info("Пока нет ни одной сданной работы.")
+
+# ПАНЕЛЬ АДМИНИСТРАТОРА
+elif st.session_state.role == "Admin":
+    if st.session_state.teacher_id is None:
+        st.session_state.role = None
+        st.warning("Сессия администратора не найдена. Войдите снова.")
+        st.rerun()
+
+    admin_username = st.session_state.teacher_username
+
+    with st.sidebar:
+        st.markdown(f"""
+        <div style="text-align:center; padding: 12px 0 8px 0;">
+            <div style="font-size:36px;">🛡️</div>
+            <div style="font-size:15px; color:#fbc2eb; font-weight:700;">{admin_username}</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5);">Administrator</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("---")
+        admin_menu = st.radio(
+            "Admin навигация:",
+            ["👥 Все учителя", "📚 Все задачи", "📊 Все результаты"],
+            label_visibility="collapsed"
+        )
+        admin_menu = admin_menu.split(" ", 1)[-1].strip()
+        st.markdown("---")
+        if st.button("🚪 Выйти", type="primary"):
+            st.session_state.role = None
+            st.session_state.teacher_id = None
+            st.session_state.teacher_username = None
+            st.query_params.clear()
+            st.rerun()
+
+    if admin_menu == "Все учителя":
+        st.header("👥 Все зарегистрированные учителя")
+        adm_c = db_conn.cursor()
+        adm_c.execute("SELECT id, username, email, is_admin, created_at FROM teachers ORDER BY id")
+        all_teachers = adm_c.fetchall()
+        if all_teachers:
+            df_t = pd.DataFrame(all_teachers, columns=["ID", "Username", "Email", "Администратор", "Дата регистрации"])
+            df_t["Администратор"] = df_t["Администратор"].apply(lambda x: "✅ Да" if x else "Нет")
+            st.dataframe(df_t, use_container_width=True)
+            st.markdown("---")
+            st.markdown("#### 🗑 Удалить учителя")
+            del_col1, del_col2 = st.columns([2, 1])
+            with del_col1:
+                del_teacher_id = st.number_input("ID учителя для удаления", min_value=1, step=1, key="del_teacher_id")
+            with del_col2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Удалить учителя", type="secondary"):
+                    adm_c.execute("SELECT username, is_admin FROM teachers WHERE id=?", (del_teacher_id,))
+                    target = adm_c.fetchone()
+                    if target is None:
+                        st.error("Учитель с таким ID не найден.")
+                    elif target[1] == 1:  # is_admin flag
+                        st.error("Нельзя удалить администратора.")
+                    else:
+                        adm_c.execute("DELETE FROM teachers WHERE id=?", (del_teacher_id,))
+                        db_conn.commit()
+                        st.success(f"Учитель «{target[0]}» удалён.")
+                        st.rerun()
+        else:
+            st.info("Нет зарегистрированных учителей.")
+
+    elif admin_menu == "Все задачи":
+        st.header("📚 Все задачи на платформе")
+        adm_c = db_conn.cursor()
+        adm_c.execute("""
+            SELECT e.code, e.title, e.type, e.time_limit, t.username
+            FROM exams_v3 e
+            LEFT JOIN teachers t ON e.teacher_id = t.id
+            ORDER BY e.rowid DESC
+        """)
+        all_exams = adm_c.fetchall()
+        if all_exams:
+            df_e = pd.DataFrame(all_exams, columns=["Код", "Название", "Тип", "Время (мин)", "Учитель"])
+            st.dataframe(df_e, use_container_width=True)
+            st.markdown("---")
+            st.markdown("#### 🗑 Удалить задачу по коду")
+            del_exam_col1, del_exam_col2 = st.columns([2, 1])
+            with del_exam_col1:
+                del_code = st.text_input("Код задачи", key="del_exam_code")
+            with del_exam_col2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Удалить задачу", type="secondary"):
+                    adm_c.execute("SELECT title FROM exams_v3 WHERE code=?", (del_code.strip(),))
+                    target_exam = adm_c.fetchone()
+                    if target_exam:
+                        adm_c.execute("DELETE FROM exams_v3 WHERE code=?", (del_code.strip(),))
+                        db_conn.commit()
+                        st.success(f"Задача «{target_exam[0]}» удалена.")
+                        st.rerun()
+                    else:
+                        st.error("Задача с таким кодом не найдена.")
+        else:
+            st.info("Нет задач на платформе.")
+
+    elif admin_menu == "Все результаты":
+        st.header("📊 Все сданные работы")
+        adm_c = db_conn.cursor()
+        adm_c.execute("SELECT id, name, title, grade FROM submissions ORDER BY id DESC")
+        all_subs = adm_c.fetchall()
+        if all_subs:
+            df_s = pd.DataFrame(all_subs, columns=["ID", "Имя ученика", "Экзамен", "Оценка AI"])
+            st.download_button("📥 Скачать всё (CSV)", df_s.to_csv(index=False).encode('utf-8-sig'), "all_results.csv", type="primary")
+            st.dataframe(df_s[["ID", "Имя ученика", "Экзамен", "Оценка AI"]], use_container_width=True)
+            st.markdown("---")
+            for sub_id, sub_name, sub_title, sub_grade in all_subs:
+                with st.expander(f"#{sub_id} — {sub_name} | {sub_title}"):
+                    st.info(f"**Оценка AI:**\n{sub_grade}")
+                    adm_c2 = db_conn.cursor()
+                    if st.button(f"🗑 Удалить запись #{sub_id}", key=f"del_sub_{sub_id}", type="secondary"):
+                        adm_c2.execute("DELETE FROM submissions WHERE id=?", (sub_id,))
+                        db_conn.commit()
+                        st.success(f"Запись #{sub_id} удалена.")
+                        st.rerun()
+        else:
+            st.info("Нет сданных работ.")
 
 # СТУДЕНТ
 elif st.session_state.role == "Student":
