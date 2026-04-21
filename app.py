@@ -5,6 +5,7 @@ from openai import OpenAI
 import random
 import string
 import time 
+import re
 import mammoth 
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -118,18 +119,21 @@ def read_file(uploaded_file):
     return ""
 
 def register_teacher(username, email, password):
+    password_clean = password.strip()
+    email_clean = email.strip().lower()
+
     if len(username.strip()) < 3:
         return False, "Имя пользователя должно содержать минимум 3 символа."
-    if len(password) < 6:
+    if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if "@" not in email or "." not in email:
+    if not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_clean):
         return False, "Введите корректный email."
 
     try:
         c = db_conn.cursor()
         c.execute(
             "INSERT INTO teachers (username, password_hash, email) VALUES (?,?,?)",
-            (username.strip(), generate_password_hash(password), email.strip().lower())
+            (username.strip(), generate_password_hash(password_clean), email_clean)
         )
         db_conn.commit()
         return True, "Регистрация успешна! Теперь вы можете войти."
@@ -143,7 +147,7 @@ def authenticate_teacher(login_input, password):
         (login_input.strip(), login_input.strip().lower())
     )
     teacher = c.fetchone()
-    if teacher and check_password_hash(teacher[2], password):
+    if teacher and check_password_hash(teacher[2], password.strip()):
         return teacher
     return None
 
@@ -187,11 +191,12 @@ def get_teacher_stats(teacher_id):
     type_counts = {row[0]: row[1] for row in c.fetchall()}
     c.execute("SELECT title FROM exams_v3 WHERE teacher_id=?", (teacher_id,))
     titles = [row[0] for row in c.fetchall()]
-    if not titles:
-        return type_counts, 0
-    placeholders = ",".join(["?"] * len(titles))
-    c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", titles)
-    submissions_count = c.fetchone()[0]
+    if titles:
+        placeholders = ",".join(["?"] * len(titles))
+        c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", titles)
+        submissions_count = c.fetchone()[0]
+    else:
+        submissions_count = 0
     return type_counts, submissions_count
 
 # --- 5. AI LOGIC ---
@@ -498,8 +503,10 @@ elif st.session_state.role == "Teacher":
                 if c_title and c_code:
                     file_desc = read_file(c_file)
                     file_crit = read_file(c_crit_file)
-                    final_desc = (c_desc.strip() + "<br>" + file_desc.strip()).strip("<br>")
-                    final_crit = (c_crit.strip() + "\n" + file_crit.strip()).strip()
+                    desc_parts = [part for part in [c_desc.strip(), file_desc.strip()] if part]
+                    crit_parts = [part for part in [c_crit.strip(), file_crit.strip()] if part]
+                    final_desc = "<br>".join(desc_parts)
+                    final_crit = "\n".join(crit_parts)
                     if not final_desc:
                         final_desc = "Описание не указано."
                     if not final_crit:
