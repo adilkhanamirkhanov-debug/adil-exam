@@ -120,13 +120,17 @@ def read_file(uploaded_file):
 
 def register_teacher(username, email, password):
     password_clean = password.strip()
-    email_clean = email.strip().lower()
+    email_clean = email.strip()
+    email_for_match = email_clean.lower()
 
     if len(username.strip()) < 3:
         return False, "Имя пользователя должно содержать минимум 3 символа."
     if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_clean):
+    if (
+        not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match)
+        or ".." in email_for_match
+    ):
         return False, "Введите корректный email."
 
     try:
@@ -141,10 +145,11 @@ def register_teacher(username, email, password):
         return False, "Пользователь с таким username/email уже существует."
 
 def authenticate_teacher(login_input, password):
+    login_value = login_input.strip()
     c = db_conn.cursor()
     c.execute(
-        "SELECT id, username, password_hash FROM teachers WHERE username=? OR email=?",
-        (login_input.strip(), login_input.strip().lower())
+        "SELECT id, username, password_hash FROM teachers WHERE username=? OR lower(email)=?",
+        (login_value, login_value.lower())
     )
     teacher = c.fetchone()
     if teacher and check_password_hash(teacher[2], password.strip()):
