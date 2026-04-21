@@ -52,6 +52,7 @@ h1, h2, h3, p, label, span {
 [data-testid="stSidebar"] {
     background-color: #480e57 !important; /* Очень темный фиолетовый */
     border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset -1px 0 0 rgba(123, 227, 255, 0.25), 0 0 28px rgba(106, 17, 203, 0.35) !important;
 }
 
 /* КОНТЕЙНЕРЫ ВНУТРИ САЙДБАРА */
@@ -77,6 +78,23 @@ h1, h2, h3, p, label, span {
 [data-testid="stSidebar"] .stButton>button {
     background-color: #4b0082 !important; /* Чуть темнее основной кнопки */
     border: 1px solid #6a11cb !important;
+}
+
+/* ТЕХНО-СТИЛЬ ДЛЯ МЕНЮ */
+[data-testid="stSidebar"] [role="radiogroup"] > label {
+    background: linear-gradient(90deg, rgba(123, 227, 255, 0.14), rgba(106, 17, 203, 0.12)) !important;
+    border: 1px solid rgba(123, 227, 255, 0.35) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    margin-bottom: 8px !important;
+    box-shadow: 0 0 14px rgba(123, 227, 255, 0.14) !important;
+    transition: all 0.25s ease !important;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+    transform: translateX(4px) !important;
+    border-color: rgba(251, 194, 235, 0.75) !important;
+    box-shadow: 0 0 18px rgba(251, 194, 235, 0.24) !important;
 }
 /* ЦВЕТ ТЕКСТА ПРИ ВВОДЕ (ВЕЗДЕ: в центре и в сайдбаре) */
 input, textarea {

@@ -204,14 +204,6 @@ def get_teacher_stats(teacher_id):
     submissions_count = c.fetchone()[0]
     return type_counts, submissions_count
 
-def map_student_mode_to_type(student_mode):
-    mode_mapping = {
-        "Стандартный экзамен": "Quick",
-        "Экзамен MYP": "MYP",
-        "Кастомные задачи": "Custom",
-    }
-    return mode_mapping.get(student_mode, "Quick")
-
 def build_in_clause(values):
     """Build parameter placeholders and normalized values for SQL IN clauses."""
     safe_values = [str(v) for v in values if v is not None]
@@ -315,7 +307,7 @@ if st.session_state.role is None:
         """
         <div style="max-width: 980px; margin: 0 auto 24px auto; text-align: center; color: #e8d9ff;">
             <p style="font-size: 18px; margin-bottom: 4px;"><b>Интеллектуальная платформа для экзаменов и оценки ответов с AI</b></p>
-            <p style="opacity: 0.85;">Учителя создают экзамены и кастомные задания, а ученики сдают работу по коду доступа.</p>
+            <p style="opacity: 0.85;">Учителя создают задачи в едином конструкторе, а ученики входят только по коду доступа.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -325,11 +317,10 @@ if st.session_state.role is None:
     with left_card:
         st.markdown(
             """
-            <div style="padding: 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04);">
+                <div style="padding: 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04);">
                 <h3 style="margin-top:0;">👨‍🎓 Student mode</h3>
                 <ul>
-                    <li>Выберите тип экзамена</li>
-                    <li>Введите код от учителя</li>
+                    <li>Введите код доступа</li>
                     <li>Отправьте ответ и получите AI-оценку</li>
                 </ul>
             </div>
@@ -339,11 +330,11 @@ if st.session_state.role is None:
     with right_card:
         st.markdown(
             """
-            <div style="padding: 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04);">
+                <div style="padding: 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04);">
                 <h3 style="margin-top:0;">👩‍🏫 Teacher mode</h3>
                 <ul>
                     <li>Зарегистрируйтесь и войдите в кабинет</li>
-                    <li>Создавайте Quick/MYP/Custom задания</li>
+                    <li>Создавайте задачи в едином техно-конструкторе</li>
                     <li>Отслеживайте статистику и результаты</li>
                 </ul>
             </div>
@@ -353,9 +344,7 @@ if st.session_state.role is None:
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<p style='text-align: center; opacity: 0.7;'>Выберите формат сдачи и введите код доступа</p>", unsafe_allow_html=True)
-        
-        student_mode = st.radio("Режим экзамена:", ["Стандартный экзамен", "Экзамен MYP", "Кастомные задачи"], horizontal=True)
+        st.markdown("<p style='text-align: center; opacity: 0.7;'>Введите код доступа от учителя</p>", unsafe_allow_html=True)
         access_code = st.text_input("Код", placeholder="Например: MYP-1A2B3", label_visibility="collapsed")
         
         if st.button("Начать экзамен", type="primary"):
@@ -363,28 +352,22 @@ if st.session_state.role is None:
             c.execute("SELECT type, title, desc, criteria, strictness, time_limit FROM exams_v3 WHERE code=?", (access_code,))
             res = c.fetchone()
             if res:
-                db_type = res[0]
-                selected_type = map_student_mode_to_type(student_mode)
+                st.session_state.current_exam = {
+                    "type": res[0], "title": res[1], "desc": res[2], 
+                    "criteria": res[3], "strictness": res[4], "time_limit": res[5]
+                }
+                st.session_state.role = "Student"
+                st.session_state.exam_submitted = False
+                st.session_state.student_grade = ""
                 
-                if db_type != selected_type:
-                    st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}'. Переключите режим сверху.")
+                if res[5] > 0:
+                    st.session_state.exam_end_time = time.time() + (res[5] * 60)
                 else:
-                    st.session_state.current_exam = {
-                        "type": res[0], "title": res[1], "desc": res[2], 
-                        "criteria": res[3], "strictness": res[4], "time_limit": res[5]
-                    }
-                    st.session_state.role = "Student"
-                    st.session_state.exam_submitted = False
-                    st.session_state.student_grade = ""
+                    st.session_state.exam_end_time = None
                     
-                    if res[5] > 0:
-                        st.session_state.exam_end_time = time.time() + (res[5] * 60)
-                    else:
-                        st.session_state.exam_end_time = None
-                        
-                    # ЗАПИСЫВАЕМ КОД В URL, чтобы не выкинуло при обновлении
-                    st.query_params["exam_code"] = access_code
-                    st.rerun()
+                # ЗАПИСЫВАЕМ КОД В URL, чтобы не выкинуло при обновлении
+                st.query_params["exam_code"] = access_code
+                st.rerun()
             else:
                 st.error("Код не найден или введен неверно.")
 
@@ -401,7 +384,7 @@ elif st.session_state.role == "Teacher":
     with st.sidebar:
         st.markdown("## Кабинет учителя")
         st.markdown(f"👋 Добро пожаловать, **{teacher_username}**")
-        menu_selection = st.radio("Навигация:", ["Дашборд", "Быстрые задачи", "MYP задачи", "Кастомные задачи", "Результаты"])
+        menu_selection = st.radio("Навигация:", ["Дашборд", "Создать задачу", "Результаты"])
         st.markdown("---")
         if st.button("Выйти", type="primary"):
             st.session_state.role = None
@@ -426,136 +409,129 @@ elif st.session_state.role == "Teacher":
         for exam_code, exam_title, exam_type, exam_time in all_teacher_exams:
             st.markdown(f"- **{exam_title}** (`{exam_type}`) — код: `{exam_code}`, время: {exam_time} мин.")
 
-    elif menu_selection == "Быстрые задачи":
-        st.header("Быстрые задачи (Базовый вариант)")
-        with st.form("quick_exam"):
-            nt = st.text_input("Название экзамена")
-            nd = st.text_area("Описание задачи (Поддерживает HTML)")
-            
-            t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
+    elif menu_selection == "Создать задачу":
+        st.header("⚡ Техно-конструктор задач")
+        st.markdown("Соберите нужный формат в одном месте: быстрый, MYP или кастомный.")
+        task_variant = st.radio(
+            "Выберите вариант задачи:",
+            ["Быстрая (Quick)", "MYP", "Кастомная (Custom)"],
+            horizontal=True
+        )
+
+        if task_variant == "Быстрая (Quick)":
+            with st.form("quick_exam"):
+                nt = st.text_input("Название экзамена")
+                nd = st.text_area("Описание задачи (Поддерживает HTML)")
+                
+                t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
+                
+                col_c1, col_c2 = st.columns([3, 1])
+                with col_c1:
+                    nc = st.text_input("Код доступа", value=st.session_state.gen_code)
+                with col_c2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Сгенерировать код", type="secondary"):
+                        st.session_state.gen_code = generate_random_code("FAST")
+                        st.rerun()
+                        
+                ncr = st.text_area("Критерии оценивания (Текст)")
+                
+                if st.form_submit_button("Сохранить задачу", type="primary"):
+                    if nc and nt:
+                        saved, save_message = save_teacher_exam(nc, "Quick", nt, nd, ncr, 5.0, t_limit, teacher_id)
+                        if saved:
+                            st.success(f"Задача сохранена! Код: {nc}")
+                        else:
+                            st.error(save_message)
+                    else:
+                        st.warning("Укажите название и код доступа.")
+
+        elif task_variant == "MYP":
+            nt = st.text_input("Название MYP Задачи")
             
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
-                nc = st.text_input("Код доступа", value=st.session_state.gen_code)
+                nc = st.text_input("Код доступа MYP", value=st.session_state.gen_code)
             with col_c2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("Сгенерировать код", type="secondary"):
-                    st.session_state.gen_code = generate_random_code("FAST")
+                if st.button("Сгенерировать MYP-код", type="secondary"):
+                    st.session_state.gen_code = generate_random_code("MYP")
                     st.rerun()
-                    
-            ncr = st.text_area("Критерии оценивания (Текст)")
+
+            st.markdown("### 1. Условие задачи и Предмет")
+            myp_subject = st.selectbox("Специфика предмета MYP", [
+                "Не указано", "Науки (Sciences)", "Математика (Mathematics)", 
+                "Язык и литература", "Приобретение языка", "Индивидуумы и общества", 
+                "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
+            ])
             
-            if st.form_submit_button("Сохранить задачу", type="primary"):
-                if nc and nt:
-                    saved, save_message = save_teacher_exam(nc, "Quick", nt, nd, ncr, 5.0, t_limit, teacher_id)
+            task_file = st.file_uploader("Загрузить файл с условием (.docx или .txt)", type=["docx", "txt"])
+            task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
+            
+            st.markdown("### 2. Дополнительные критерии (опционально)")
+            crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
+            
+            st.markdown("### 3. Настройки экзамена")
+            t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=60, help="0 = без ограничений")
+            strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
+
+            if st.button("Опубликовать MYP задачу", type="primary"):
+                if nt and nc:
+                    desc_content = read_file(task_file)
+                    questions_html = f"<br><h3>Дополнительные вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
+                    final_desc = desc_content + questions_html
+                    
+                    subject_prefix = f"[ОФИЦИАЛЬНЫЙ ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
+                    final_crit = subject_prefix + read_file(crit_file)
+                    
+                    if not final_desc.strip():
+                        final_desc = "Смотрите вопросы."
+                    if not final_crit.strip():
+                        final_crit = "Оценивать по стандартам MYP."
+
+                    saved, save_message = save_teacher_exam(nc, "MYP", nt, final_desc, final_crit, float(strictness), t_limit, teacher_id)
                     if saved:
-                        st.success(f"Задача сохранена! Код: {nc}")
+                        st.success(f"MYP Экзамен опубликован! Код доступа: {nc}")
                     else:
                         st.error(save_message)
                 else:
-                    st.warning("Укажите название и код доступа.")
+                    st.warning("Пожалуйста, введите название и сгенерируйте код.")
 
-    elif menu_selection == "MYP задачи":
-        st.header("MYP задачи (Продвинутый уровень)")
-        
-        nt = st.text_input("Название MYP Задачи")
-        
-        col_c1, col_c2 = st.columns([3, 1])
-        with col_c1:
-            nc = st.text_input("Код доступа MYP", value=st.session_state.gen_code)
-        with col_c2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Сгенерировать MYP-код", type="secondary"):
-                st.session_state.gen_code = generate_random_code("MYP")
-                st.rerun()
-
-        st.markdown("### 1. Условие задачи и Предмет")
-        myp_subject = st.selectbox("Специфика предмета MYP", [
-            "Не указано", "Науки (Sciences)", "Математика (Mathematics)", 
-            "Язык и литература", "Приобретение языка", "Индивидуумы и общества", 
-            "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
-        ])
-        
-        task_file = st.file_uploader("Загрузить файл с условием (.docx или .txt)", type=["docx", "txt"])
-        task_questions = st.text_area("Дополнительные вопросы (каждый с новой строки)", height=150)
-        
-        st.markdown("### 2. Дополнительные критерии (опционально)")
-        crit_file = st.file_uploader("Загрузить рубрику (.docx, .txt)", type=["docx", "txt"])
-        
-        st.markdown("### 3. Настройки экзамена")
-        t_limit = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=60, help="0 = без ограничений")
-        strictness = st.slider("Уровень строгости оценивания", min_value=1, max_value=10, value=5)
-
-        if st.button("Опубликовать MYP задачу", type="primary"):
-            if nt and nc:
-                desc_content = read_file(task_file)
-                questions_html = f"<br><h3>Дополнительные вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
-                final_desc = desc_content + questions_html
-                
-                subject_prefix = f"[ОФИЦИАЛЬНЫЙ ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
-                final_crit = subject_prefix + read_file(crit_file)
-                
-                if not final_desc.strip(): final_desc = "Смотрите вопросы."
-                if not final_crit.strip(): final_crit = "Оценивать по стандартам MYP."
-
-                saved, save_message = save_teacher_exam(nc, "MYP", nt, final_desc, final_crit, float(strictness), t_limit, teacher_id)
-                if saved:
-                    st.success(f"MYP Экзамен опубликован! Код доступа: {nc}")
-                else:
-                    st.error(save_message)
-            else:
-                st.warning("Пожалуйста, введите название и сгенерируйте код.")
-
-    elif menu_selection == "Кастомные задачи":
-        st.header("Кастомные задачи")
-        with st.form("custom_exam"):
-            c_title = st.text_input("Название кастомной задачи")
-            c_desc = st.text_area("Описание задачи")
-            c_file = st.file_uploader("Файл с условием (.docx/.txt)", type=["docx", "txt"])
-            c_crit = st.text_area("Критерии оценивания")
-            c_crit_file = st.file_uploader("Файл с критериями (.docx/.txt)", type=["docx", "txt"])
-            c_time = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
-            c_strict = st.slider("Уровень строгости", min_value=1, max_value=10, value=5)
-            c_code = st.text_input("Код доступа", value=st.session_state.gen_code)
-            if st.form_submit_button("Сгенерировать код", type="secondary"):
-                st.session_state.gen_code = generate_random_code("CSTM")
-                st.rerun()
-            publish_custom = st.form_submit_button("Сохранить кастомную задачу", type="primary")
-
-            if publish_custom:
-                if c_title and c_code:
-                    file_desc = read_file(c_file)
-                    file_crit = read_file(c_crit_file)
-                    desc_parts = [part for part in [c_desc.strip(), file_desc.strip()] if part]
-                    crit_parts = [part for part in [c_crit.strip(), file_crit.strip()] if part]
-                    final_desc = "<br>".join(desc_parts)
-                    final_crit = "\n".join(crit_parts)
-                    if not final_desc:
-                        final_desc = "Описание не указано."
-                    if not final_crit:
-                        final_crit = "Оценить по содержательности, структуре и аргументации."
-
-                    saved, save_message = save_teacher_exam(c_code, "Custom", c_title, final_desc, final_crit, float(c_strict), c_time, teacher_id)
-                    if saved:
-                        st.success(f"Кастомная задача сохранена! Код: {c_code}")
-                    else:
-                        st.error(save_message)
-                else:
-                    st.warning("Укажите название и код доступа.")
-
-        st.markdown("### Мои кастомные задачи")
-        custom_exams = get_teacher_exams(teacher_id, "Custom")
-        if not custom_exams:
-            st.info("У вас пока нет кастомных задач.")
-        for exam_code, exam_title, exam_type, exam_time in custom_exams:
-            with st.expander(f"{exam_title} ({exam_code})"):
-                st.write(f"Тип: {exam_type} | Лимит: {exam_time} мин.")
-                if st.button(f"Удалить {exam_code}", type="secondary", key=f"del-{exam_code}"):
-                    c = db_conn.cursor()
-                    c.execute("DELETE FROM exams_v3 WHERE code=? AND teacher_id=?", (exam_code, teacher_id))
-                    db_conn.commit()
-                    st.success(f"Задача {exam_code} удалена.")
+        else:
+            with st.form("custom_exam"):
+                c_title = st.text_input("Название кастомной задачи")
+                c_desc = st.text_area("Описание задачи")
+                c_file = st.file_uploader("Файл с условием (.docx/.txt)", type=["docx", "txt"])
+                c_crit = st.text_area("Критерии оценивания")
+                c_crit_file = st.file_uploader("Файл с критериями (.docx/.txt)", type=["docx", "txt"])
+                c_time = st.number_input("Время на выполнение (минуты)", min_value=0, max_value=300, value=45, help="0 = без ограничений")
+                c_strict = st.slider("Уровень строгости", min_value=1, max_value=10, value=5)
+                c_code = st.text_input("Код доступа", value=st.session_state.gen_code)
+                if st.form_submit_button("Сгенерировать код", type="secondary"):
+                    st.session_state.gen_code = generate_random_code("CSTM")
                     st.rerun()
+                publish_custom = st.form_submit_button("Сохранить кастомную задачу", type="primary")
+
+                if publish_custom:
+                    if c_title and c_code:
+                        file_desc = read_file(c_file)
+                        file_crit = read_file(c_crit_file)
+                        desc_parts = [part for part in [c_desc.strip(), file_desc.strip()] if part]
+                        crit_parts = [part for part in [c_crit.strip(), file_crit.strip()] if part]
+                        final_desc = "<br>".join(desc_parts)
+                        final_crit = "\n".join(crit_parts)
+                        if not final_desc:
+                            final_desc = "Описание не указано."
+                        if not final_crit:
+                            final_crit = "Оценить по содержательности, структуре и аргументации."
+
+                        saved, save_message = save_teacher_exam(c_code, "Custom", c_title, final_desc, final_crit, float(c_strict), c_time, teacher_id)
+                        if saved:
+                            st.success(f"Кастомная задача сохранена! Код: {c_code}")
+                        else:
+                            st.error(save_message)
+                    else:
+                        st.warning("Укажите название и код доступа.")
 
     elif menu_selection == "Результаты":
         st.header("Результаты студентов")
@@ -595,6 +571,62 @@ elif st.session_state.role == "Student":
     mode_label = "Режим IB MYP" if exam["type"] == "MYP" else ("Кастомный режим" if exam["type"] == "Custom" else "Стандартный режим")
     st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
+
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            if (!doc.getElementById("proctoring-style")) {
+                const style = doc.createElement("style");
+                style.id = "proctoring-style";
+                style.textContent = "#proctoring-alert{position:fixed;right:18px;bottom:18px;z-index:999999;padding:10px 14px;border-radius:10px;background:rgba(255,75,75,.92);color:#fff;font-weight:700;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4);}#proctoring-indicator{position:fixed;right:18px;top:18px;z-index:999999;padding:8px 12px;border-radius:999px;background:rgba(20,20,38,.9);color:#7be3ff;border:1px solid rgba(123,227,255,.65);font-size:12px;font-weight:700;}";
+                doc.head.appendChild(style);
+            }
+            if (!doc.getElementById("proctoring-alert")) {
+                const alertBox = doc.createElement("div");
+                alertBox.id = "proctoring-alert";
+                doc.body.appendChild(alertBox);
+            }
+            if (!doc.getElementById("proctoring-indicator")) {
+                const indicator = doc.createElement("div");
+                indicator.id = "proctoring-indicator";
+                indicator.innerText = "PROCTORING ACTIVE";
+                doc.body.appendChild(indicator);
+            }
+            window.proctoringViolations = window.proctoringViolations || 0;
+            function showProctoringWarning(message){
+                const alertBox = doc.getElementById("proctoring-alert");
+                window.proctoringViolations += 1;
+                alertBox.innerText = `Прокторинг: ${message}. Нарушений: ${window.proctoringViolations}`;
+                alertBox.style.display = "block";
+                clearTimeout(window.proctoringTimer);
+                window.proctoringTimer = setTimeout(()=>{ alertBox.style.display = "none"; }, 3000);
+            }
+            if (!window.proctoringEventsAttached) {
+                window.proctoringEventsAttached = true;
+                doc.addEventListener("visibilitychange", () => {
+                    if (doc.hidden) showProctoringWarning("обнаружено переключение вкладки");
+                });
+                window.parent.addEventListener("blur", () => {
+                    showProctoringWarning("обнаружен выход из окна экзамена");
+                });
+                doc.addEventListener("copy", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("копирование заблокировано");
+                });
+                doc.addEventListener("paste", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("вставка заблокирована");
+                });
+                doc.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("контекстное меню заблокировано");
+                });
+            }
+        </script>
+        """,
+        height=0
+    )
     
     col_left, col_right = st.columns([1.5, 1])
     
@@ -661,6 +693,9 @@ elif st.session_state.role == "Student":
                     st.rerun()
 
     with col_right:
+        st.markdown("### Прокторинг")
+        st.info("Активирован базовый прокторинг: фиксируются выход из вкладки/окна, копирование, вставка и контекстное меню.")
+
         st.markdown("### Критерии оценивания")
         with st.container(height=450):
             st.markdown(exam["criteria"], unsafe_allow_html=True)
