@@ -10,6 +10,8 @@ import mammoth
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
 
+EMAIL_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
 # --- 1. CONFIG ---
 st.set_page_config(
     page_title="AdilEduAssessment", 
@@ -127,7 +129,7 @@ def register_teacher(username, email, password):
         return False, "Имя пользователя должно содержать минимум 3 символа."
     if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if not re.fullmatch(r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match):
+    if not re.fullmatch(EMAIL_PATTERN, email_for_match):
         return False, "Введите корректный email."
 
     try:
@@ -197,8 +199,8 @@ def get_teacher_stats(teacher_id):
     titles = [row[0] for row in c.fetchall()]
     if not titles:
         return type_counts, 0
-    placeholders = ",".join(["?"] * len(titles))
-    c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", titles)
+    placeholders, safe_titles = build_in_clause(titles)
+    c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", safe_titles)
     submissions_count = c.fetchone()[0]
     return type_counts, submissions_count
 
@@ -209,6 +211,13 @@ def map_student_mode_to_type(student_mode):
         "Кастомные задачи": "Custom",
     }
     return mode_mapping.get(student_mode)
+
+def build_in_clause(values):
+    safe_values = [str(v) for v in values if v is not None]
+    if not safe_values:
+        return "", []
+    placeholders = ",".join(["?"] * len(safe_values))
+    return placeholders, safe_values
 
 # --- 5. AI LOGIC ---
 client = OpenAI(
@@ -553,8 +562,8 @@ elif st.session_state.role == "Teacher":
         if not teacher_titles:
             data = []
         else:
-            placeholders = ",".join(["?"] * len(teacher_titles))
-            c.execute(f"SELECT name, title, essay, grade FROM submissions WHERE title IN ({placeholders})", teacher_titles)
+            placeholders, safe_titles = build_in_clause(teacher_titles)
+            c.execute(f"SELECT name, title, essay, grade FROM submissions WHERE title IN ({placeholders})", safe_titles)
             data = c.fetchall()
         if data:
             df = pd.DataFrame(data, columns=["Имя", "Экзамен", "Эссе", "Оценка"])
