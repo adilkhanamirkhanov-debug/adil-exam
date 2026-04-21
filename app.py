@@ -127,7 +127,7 @@ def register_teacher(username, email, password):
         return False, "Имя пользователя должно содержать минимум 3 символа."
     if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if ".." in email_for_match or not re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match):
+    if not re.fullmatch(r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email_for_match):
         return False, "Введите корректный email."
 
     try:
@@ -195,13 +195,20 @@ def get_teacher_stats(teacher_id):
     type_counts = {row[0]: row[1] for row in c.fetchall()}
     c.execute("SELECT title FROM exams_v3 WHERE teacher_id=?", (teacher_id,))
     titles = [row[0] for row in c.fetchall()]
-    if titles:
-        placeholders = ",".join(["?"] * len(titles))
-        c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", titles)
-        submissions_count = c.fetchone()[0]
-    else:
-        submissions_count = 0
+    if not titles:
+        return type_counts, 0
+    placeholders = ",".join(["?"] * len(titles))
+    c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", titles)
+    submissions_count = c.fetchone()[0]
     return type_counts, submissions_count
+
+def map_student_mode_to_type(student_mode):
+    mode_mapping = {
+        "Стандартный экзамен": "Quick",
+        "Экзамен MYP": "MYP",
+        "Кастомные задачи": "Custom",
+    }
+    return mode_mapping.get(student_mode)
 
 # --- 5. AI LOGIC ---
 client = OpenAI(
@@ -345,7 +352,7 @@ if st.session_state.role is None:
             res = c.fetchone()
             if res:
                 db_type = res[0]
-                selected_type = "Quick" if student_mode == "Стандартный экзамен" else ("MYP" if student_mode == "Экзамен MYP" else "Custom")
+                selected_type = map_student_mode_to_type(student_mode)
                 
                 if db_type != selected_type:
                     st.error(f"Ошибка доступа! Этот код предназначен для режима '{db_type}'. Переключите режим сверху.")
@@ -543,12 +550,12 @@ elif st.session_state.role == "Teacher":
         c = db_conn.cursor()
         c.execute("SELECT title FROM exams_v3 WHERE teacher_id=?", (teacher_id,))
         teacher_titles = [row[0] for row in c.fetchall()]
-        if teacher_titles:
+        if not teacher_titles:
+            data = []
+        else:
             placeholders = ",".join(["?"] * len(teacher_titles))
             c.execute(f"SELECT name, title, essay, grade FROM submissions WHERE title IN ({placeholders})", teacher_titles)
             data = c.fetchall()
-        else:
-            data = []
         if data:
             df = pd.DataFrame(data, columns=["Имя", "Экзамен", "Эссе", "Оценка"])
             st.download_button("Скачать CSV", df.to_csv(index=False).encode('utf-8-sig'), "results.csv", type="primary")
