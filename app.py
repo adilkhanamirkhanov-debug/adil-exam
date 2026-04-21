@@ -10,7 +10,7 @@ import mammoth
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
 
-EMAIL_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+EMAIL_VALIDATION_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -129,7 +129,7 @@ def register_teacher(username, email, password):
         return False, "Имя пользователя должно содержать минимум 3 символа."
     if len(password_clean) < 6:
         return False, "Пароль должен содержать минимум 6 символов."
-    if not re.fullmatch(EMAIL_PATTERN, email_for_match):
+    if not re.fullmatch(EMAIL_VALIDATION_PATTERN, email_for_match):
         return False, "Введите корректный email."
 
     try:
@@ -210,13 +210,16 @@ def map_student_mode_to_type(student_mode):
         "Экзамен MYP": "MYP",
         "Кастомные задачи": "Custom",
     }
-    return mode_mapping.get(student_mode)
+    return mode_mapping.get(student_mode, "Quick")
 
 def build_in_clause(values):
+    """Build parameter placeholders and normalized values for SQL IN clauses."""
     safe_values = [str(v) for v in values if v is not None]
     if not safe_values:
         return "", []
     placeholders = ",".join(["?"] * len(safe_values))
+    if not re.fullmatch(r"^\?(,\?)*$", placeholders):
+        raise ValueError("Unsafe SQL placeholders generated.")
     return placeholders, safe_values
 
 # --- 5. AI LOGIC ---
