@@ -867,15 +867,15 @@ elif st.session_state.role == "Teacher":
             st.markdown("### 🎯 Цели кабинета")
             goal_col1, goal_col2 = st.columns(2)
             with goal_col1:
-                weekly_exam_goal = st.slider("Цель по задачам", 1, 20, 6, key="weekly_exam_goal")
-                weekly_result_goal = st.slider("Цель по проверкам", 1, 50, 12, key="weekly_result_goal")
+                exam_goal = st.slider("Цель по задачам", 1, 20, 6, key="cabinet_exam_goal")
+                result_goal = st.slider("Цель по проверкам", 1, 50, 12, key="cabinet_result_goal")
             with goal_col2:
-                exam_goal_progress = min(1.0, profile["total_exams"] / max(1, weekly_exam_goal))
-                result_goal_progress = min(1.0, total_submissions / max(1, weekly_result_goal))
+                exam_goal_progress = min(1.0, profile["total_exams"] / max(1, exam_goal))
+                result_goal_progress = min(1.0, total_submissions / max(1, result_goal))
                 combined = int(((exam_goal_progress + result_goal_progress) / 2) * 100)
                 st.progress(exam_goal_progress, text=f"Задачи: {int(exam_goal_progress * 100)}%")
                 st.progress(result_goal_progress, text=f"Работы: {int(result_goal_progress * 100)}%")
-                st.markdown(f'<div class="goal-chip">Общий прогресс недели: {combined}%</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="goal-chip">Общий прогресс: {combined}%</div>', unsafe_allow_html=True)
 
             st.markdown("### 🏅 Достижения")
             achievement_cards = []
