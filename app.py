@@ -1219,7 +1219,7 @@ elif st.session_state.role == "Teacher":
                 created_label = q_created or ""
                 if q_created:
                     try:
-                        created_label = datetime.fromisoformat(q_created).strftime("%Y-%m-%d %H:%M")
+                        created_label = datetime.fromisoformat(q_created).strftime("%Y-%m-%d %H:%M:%S")
                     except ValueError:
                         created_label = q_created
                 with st.expander(f"{q_name} — {q_exam} ({created_label})"):
@@ -1539,6 +1539,8 @@ elif st.session_state.role == "Student":
                     st.warning("Укажите ваше имя для вопроса.")
                 elif not student_question.strip():
                     st.warning("Напишите текст вопроса.")
+                elif s_name.strip() and question_name.strip() != s_name.strip():
+                    st.warning("Имя в вопросе должно совпадать с именем в вашем ответе.")
                 else:
                     c = db_conn.cursor()
                     c.execute(
