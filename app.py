@@ -7,13 +7,29 @@ import string
 import time 
 import re
 import json
-import imghdr
 from datetime import datetime
 import mammoth 
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
 
 EMAIL_VALIDATION_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+def detect_image_type(file_bytes):
+    """Detect image type from file bytes.
+
+    Args:
+        file_bytes: bytes or bytearray containing image data.
+
+    Returns:
+        "png" or "jpeg" if the signature matches, otherwise None.
+    """
+    if not isinstance(file_bytes, (bytes, bytearray)) or not file_bytes:
+        return None
+    if file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if file_bytes.startswith(b"\xff\xd8"):
+        return "jpeg"
+    return None
 
 MYP_SUBJECT_CRITERIA = {
     "Не указано": {
@@ -794,7 +810,7 @@ elif st.session_state.role == "Teacher":
             avatar_file = st.file_uploader("Загрузить аватар", type=["png", "jpg", "jpeg"], key="teacher_avatar_upload")
             if avatar_file is not None:
                 avatar_bytes = avatar_file.getvalue()
-                detected_type = imghdr.what(None, avatar_bytes)
+                detected_type = detect_image_type(avatar_bytes)
                 if len(avatar_bytes) > 5 * 1024 * 1024:
                     st.warning("Размер аватарки должен быть не больше 5MB.")
                 elif detected_type not in {"png", "jpeg"}:
