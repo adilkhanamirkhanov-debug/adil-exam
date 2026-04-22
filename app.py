@@ -15,6 +15,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 EMAIL_VALIDATION_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
 
 def detect_image_type(file_bytes):
+    """Return 'png' or 'jpeg' by file signature, or None for unsupported/invalid input."""
+    if not isinstance(file_bytes, (bytes, bytearray)) or not file_bytes:
+        return None
     if file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
     if file_bytes.startswith(b"\xff\xd8\xff"):
