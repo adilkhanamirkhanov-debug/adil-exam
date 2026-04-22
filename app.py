@@ -4,6 +4,7 @@ import random
 import string
 import sqlite3
 import io
+import time as _time
 
 import pandas as pd
 import mammoth
@@ -90,7 +91,7 @@ init_db()
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def build_in_clause(values):
-    """Build parameter placeholders and normalised values for SQL IN clauses."""
+    """Build parameter placeholders and normalized values for SQL IN clauses."""
     safe_values = [str(v) for v in values if v is not None]
     if not safe_values:
         return "", []
@@ -484,8 +485,8 @@ def teacher_ai_criteria():
             difficulty=data.get("difficulty", "Medium")
         )
         return jsonify({"criteria": result})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return jsonify({"error": "AI service error. Please try again."}), 500
 
 
 @app.route("/teacher/ai-improve", methods=["POST"])
@@ -498,8 +499,8 @@ def teacher_ai_improve():
     try:
         result = improve_criteria_with_ai(existing, data.get("exam_type", "Quick"))
         return jsonify({"criteria": result})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return jsonify({"error": "AI service error. Please try again."}), 500
 
 
 @app.route("/teacher/results")
@@ -655,7 +656,6 @@ def exam_page(code):
         flash("Экзамен не найден.", "error")
         return redirect(url_for("index"))
 
-    import time as _time
     end_time_ms = None
     if exam["time_limit"] and exam["time_limit"] > 0:
         end_time_ms = int((_time.time() + exam["time_limit"] * 60) * 1000)
@@ -718,4 +718,4 @@ def exam_submit(code):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

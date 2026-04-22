@@ -23,7 +23,7 @@
         </td>
         <td>
           <form method="POST" action="{{ url_for('admin_delete_submission') }}"
-            onsubmit="return confirm('Удалить запись #{{ s[\'id\'] }}?')" style="display:inline;">
+            onsubmit="return confirm('Удалить запись #' + {{ s['id'] }} + '?')" style="display:inline;">
             <input type="hidden" name="sub_id" value="{{ s['id'] }}" />
             <button type="submit" class="btn btn-danger btn-sm">🗑 Удалить</button>
           </form>
