@@ -907,7 +907,7 @@ elif st.session_state.role == "Teacher":
                         "Код": exam_code,
                         "Название": exam_title,
                         "Тип": exam_type,
-                        "Время (мин)": str(exam_time) if exam_time else "Unlimited",
+                        "Время (мин)": str(exam_time) if exam_time else "Неограниченно",
                     }
                     for exam_code, exam_title, exam_type, exam_time in all_teacher_exams
                 ]
