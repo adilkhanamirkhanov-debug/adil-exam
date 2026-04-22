@@ -827,6 +827,9 @@ elif st.session_state.role == "Teacher":
                     with sc_col1:
                         if f"sc_{letter}" not in st.session_state:
                             st.session_state[f"sc_{letter}"] = st.session_state.myp_success_criteria.get(letter, "")
+                        pending_key = f"sc_pending_{letter}"
+                        if pending_key in st.session_state:
+                            st.session_state[f"sc_{letter}"] = st.session_state.pop(pending_key)
                         st.text_area(
                             f"Критерии успеха {letter}",
                             key=f"sc_{letter}",
@@ -849,7 +852,7 @@ elif st.session_state.role == "Teacher":
                                     "MYP",
                                     subject=f"{myp_subject} — Критерий {letter}: {crit_name}"
                                 )
-                            st.session_state[f"sc_{letter}"] = ai_sc
+                            st.session_state[f"sc_pending_{letter}"] = ai_sc
                             st.rerun()
 
             # ── Шаг 6: Максимальный балл ─────────────────────────────────
