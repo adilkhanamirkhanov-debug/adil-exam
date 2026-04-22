@@ -7,6 +7,7 @@ import string
 import time 
 import re
 import json
+from datetime import datetime
 import mammoth 
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -67,6 +68,65 @@ MYP_SUBJECT_CRITERIA = {
         "D": "Рефлексия и улучшение",
     },
 }
+
+PLATFORM_INSTRUCTION_MD = """
+**🔐 Вход и регистрация**
+- Зарегистрируйтесь, введя имя, email и пароль (мин. 6 символов).
+- Войдите по username или email.
+- Если у вас есть код администратора — введите его при регистрации.
+
+---
+
+**⚡ Создание задачи**
+
+Нажмите **«Создать задачу»** в меню. Выберите тип:
+
+- **Quick** — быстрое эссе / краткий ответ. Одна рубрика, простая настройка.
+- **MYP** — официальный формат IB MYP с критериями A/B/C/D по предмету.
+- **Custom** — полностью кастомная задача.
+
+**Шаги конструктора:**
+1. Введите код доступа (или нажмите 🎲 для автогенерации).
+2. Укажите название задачи.
+3. Напишите условие задачи (или загрузите файл .docx/.txt).
+4. Добавьте критерии оценивания вручную или с помощью кнопок AI.
+5. Для MYP: выберите предмет и критерии, добавьте критерии успеха.
+6. Настройте время и строгость AI-оценивания.
+7. Нажмите **«Опубликовать»**.
+
+---
+
+**🤖 AI-помощник**
+- **Сгенерировать критерии** — AI создаёт рубрику по названию и условию задачи.
+- **Улучшить критерии** — AI дорабатывает уже введённые критерии.
+- **Шаблон рубрики** — вставляет готовый шаблон для выбранного типа задачи.
+- **🤖 AI** (в MYP) — генерирует критерии успеха для конкретного критерия.
+
+---
+
+**📤 Раздача кода студентам**
+- После публикации задачи скопируйте **код доступа**.
+- Студент вводит код на главной странице платформы и начинает экзамен.
+
+---
+
+**📋 Результаты**
+- В разделе **«Результаты»** отображаются все работы ваших студентов.
+- Можно просмотреть ответ и AI-оценку каждого студента.
+- Нажмите **«Скачать CSV»**, чтобы сохранить таблицу результатов.
+
+---
+
+**⏱ Таймер и прокторинг**
+- Установите лимит времени (0 = без ограничений).
+- Прокторинг автоматически фиксирует: переключение вкладок, выход из окна, копирование и вставку.
+
+---
+
+**❓ Если что-то пошло не так**
+- При ошибке AI появится сообщение **«Операция не прошла»** — просто попробуйте ещё раз.
+- Данные задач сохраняются в базе и не теряются при обновлении страницы.
+"""
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -156,6 +216,15 @@ def init_db():
             password_hash TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             is_admin INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS student_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_name TEXT NOT NULL,
+            exam_title TEXT NOT NULL,
+            question TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -666,66 +735,9 @@ elif st.session_state.role == "Teacher":
             st.query_params.clear()
             st.rerun()
 
-        st.markdown("---")
-        with st.expander("📖 Инструкция по платформе", expanded=False):
-            st.markdown("""
-**🔐 Вход и регистрация**
-- Зарегистрируйтесь, введя имя, email и пароль (мин. 6 символов).
-- Войдите по username или email.
-- Если у вас есть код администратора — введите его при регистрации.
-
----
-
-**⚡ Создание задачи**
-
-Нажмите **«Создать задачу»** в меню. Выберите тип:
-
-- **Quick** — быстрое эссе / краткий ответ. Одна рубрика, простая настройка.
-- **MYP** — официальный формат IB MYP с критериями A/B/C/D по предмету.
-- **Custom** — полностью кастомная задача.
-
-**Шаги конструктора:**
-1. Введите код доступа (или нажмите 🎲 для автогенерации).
-2. Укажите название задачи.
-3. Напишите условие задачи (или загрузите файл .docx/.txt).
-4. Добавьте критерии оценивания вручную или с помощью кнопок AI.
-5. Для MYP: выберите предмет и критерии, добавьте критерии успеха.
-6. Настройте время и строгость AI-оценивания.
-7. Нажмите **«Опубликовать»**.
-
----
-
-**🤖 AI-помощник**
-- **Сгенерировать критерии** — AI создаёт рубрику по названию и условию задачи.
-- **Улучшить критерии** — AI дорабатывает уже введённые критерии.
-- **Шаблон рубрики** — вставляет готовый шаблон для выбранного типа задачи.
-- **🤖 AI** (в MYP) — генерирует критерии успеха для конкретного критерия.
-
----
-
-**📤 Раздача кода студентам**
-- После публикации задачи скопируйте **код доступа**.
-- Студент вводит код на главной странице платформы и начинает экзамен.
-
----
-
-**📋 Результаты**
-- В разделе **«Результаты»** отображаются все работы ваших студентов.
-- Можно просмотреть ответ и AI-оценку каждого студента.
-- Нажмите **«Скачать CSV»**, чтобы сохранить таблицу результатов.
-
----
-
-**⏱ Таймер и прокторинг**
-- Установите лимит времени (0 = без ограничений).
-- Прокторинг автоматически фиксирует: переключение вкладок, выход из окна, копирование и вставку.
-
----
-
-**❓ Если что-то пошло не так**
-- При ошибке AI появится сообщение **«Операция не прошла»** — просто попробуйте ещё раз.
-- Данные задач сохраняются в базе и не теряются при обновлении страницы.
-""")
+    # Намеренно в основной области (не в sidebar), чтобы отображалось как отдельное окно.
+    with st.expander("🪟 Инструкция по платформе", expanded=False):
+        st.markdown(PLATFORM_INSTRUCTION_MD)
 
     if menu_selection == "Дашборд":
         st.header("📊 Профиль и статистика")
@@ -1192,6 +1204,30 @@ elif st.session_state.role == "Teacher":
         else:
             st.info("Пока нет ни одной сданной работы.")
 
+        st.markdown("---")
+        st.subheader("❓ Вопросы от пользователей")
+        if teacher_titles:
+            placeholders, safe_titles = build_in_clause(teacher_titles)
+            c.execute(
+                f"SELECT student_name, exam_title, question, created_at FROM student_questions WHERE exam_title IN ({placeholders}) ORDER BY id DESC",
+                safe_titles
+            )
+            question_data = c.fetchall()
+        else:
+            question_data = []
+        if question_data:
+            for q_name, q_exam, q_text, q_created in question_data:
+                created_label = q_created or ""
+                if q_created:
+                    try:
+                        created_label = datetime.fromisoformat(q_created).strftime("%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        created_label = q_created
+                with st.expander(f"{q_name} — {q_exam} ({created_label})"):
+                    st.markdown(q_text)
+        else:
+            st.info("Пока нет вопросов от пользователей.")
+
 # ПАНЕЛЬ АДМИНИСТРАТОРА
 elif st.session_state.role == "Admin":
     if st.session_state.teacher_id is None:
@@ -1485,6 +1521,35 @@ elif st.session_state.role == "Student":
                     st.session_state.exam_end_time = None 
                     st.query_params.clear()
                     st.rerun()
+
+            st.markdown("### ❓ Вопрос к учителю")
+            question_name = st.text_input(
+                "Ваше имя для вопроса",
+                value=s_name,
+                key="student_question_name",
+                placeholder="Имя и Фамилия"
+            )
+            student_question = st.text_area(
+                "Если что-то непонятно — задайте вопрос",
+                key="student_question_input",
+                height=120,
+                placeholder="Напишите ваш вопрос по заданию..."
+            )
+            if st.button("Отправить вопрос", type="secondary"):
+                if not question_name.strip():
+                    st.warning("Укажите ваше имя для вопроса.")
+                elif not student_question.strip():
+                    st.warning("Напишите текст вопроса.")
+                elif s_name.strip() and question_name.strip() != s_name.strip():
+                    st.warning("Имя в вопросе должно совпадать с именем в вашем ответе.")
+                else:
+                    c = db_conn.cursor()
+                    c.execute(
+                        "INSERT INTO student_questions (student_name, exam_title, question) VALUES (?,?,?)",
+                        (question_name.strip(), exam['title'], student_question.strip())
+                    )
+                    db_conn.commit()
+                    st.success("Вопрос отправлен учителю.")
 
     with col_right:
         if not st.session_state.exam_submitted:
