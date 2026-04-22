@@ -100,6 +100,7 @@ if "ai_criteria_result" not in st.session_state: st.session_state.ai_criteria_re
 if "myp_tasks" not in st.session_state: st.session_state.myp_tasks = [{"text": "", "active": True, "id": 0}]
 if "myp_task_counter" not in st.session_state: st.session_state.myp_task_counter = 1
 if "myp_success_criteria" not in st.session_state: st.session_state.myp_success_criteria = {}
+if "wizard_criteria" not in st.session_state: st.session_state.wizard_criteria = ""
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)

@@ -14,7 +14,7 @@ EMAIL_VALIDATION_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za
 
 # --- 1. CONFIG ---
 st.set_page_config(
-    page_title="AdilEduAssessment", 
+    page_title="fair-exam", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
@@ -466,7 +466,7 @@ if st.session_state.role is None:
 </script>
 """, height=0)
 
-    st.markdown('<p class="logo-text">AdilEduAssessment</p>', unsafe_allow_html=True)
+    st.markdown('<p class="logo-text">fair-exam</p>', unsafe_allow_html=True)
     st.markdown(
         """
         <div style="max-width: 980px; margin: 0 auto 24px auto; text-align: center; color: #e8d9ff;">
