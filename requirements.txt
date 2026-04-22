@@ -1,6 +1,7 @@
-streamlit
+flask
 pandas
 openai
 mammoth
-streamlit-quill
 werkzeug
+python-dotenv
+gunicorn

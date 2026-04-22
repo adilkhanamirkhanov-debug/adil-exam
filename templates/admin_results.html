@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Все результаты — Admin{% endblock %}
+{% block content %}
+<div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1>📊 Все сданные работы</h1>
+  {% if subs %}
+  <a class="btn btn-sm" href="{{ url_for('admin_results') }}?download=1" id="download-csv">📥 Скачать CSV</a>
+  {% endif %}
+</div>
+
+{% if subs %}
+<div class="card mb-4">
+  <table>
+    <thead><tr><th>ID</th><th>Имя ученика</th><th>Экзамен</th><th>Оценка (краткая)</th><th>Действие</th></tr></thead>
+    <tbody>
+      {% for s in subs %}
+      <tr>
+        <td>{{ s['id'] }}</td>
+        <td>{{ s['name'] }}</td>
+        <td>{{ s['title'] }}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {{ s['grade'][:80] ~ '...' if s['grade'] and s['grade']|length > 80 else s['grade'] }}
+        </td>
+        <td>
+          <form method="POST" action="{{ url_for('admin_delete_submission') }}"
+            onsubmit="return confirm('Удалить запись #{{ s[\'id\'] }}?')" style="display:inline;">
+            <input type="hidden" name="sub_id" value="{{ s['id'] }}" />
+            <button type="submit" class="btn btn-danger btn-sm">🗑 Удалить</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<hr />
+<h2 style="margin-bottom:16px;">Детали записей</h2>
+{% for s in subs %}
+<details class="card mb-2">
+  <summary style="cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;">
+    <span>#{{ s['id'] }} — {{ s['name'] }} | {{ s['title'] }}</span>
+    <span style="color:#a18cd1;font-size:13px;">▼</span>
+  </summary>
+  <div style="margin-top:14px;">
+    <div class="alert alert-info">
+      <b>Оценка AI:</b><br>
+      <pre style="white-space:pre-wrap;margin-top:8px;font-family:inherit;color:#e0e0e0;">{{ s['grade'] }}</pre>
+    </div>
+  </div>
+</details>
+{% endfor %}
+
+{% else %}
+<div class="alert alert-info">Нет сданных работ.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.title }} — Экзамен{% endblock %}
+
+{% block head %}
+<style>
+  body { user-select: none; }
+  textarea { user-select: text !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Proctoring elements -->
+<div id="proctoring-alert"></div>
+<div id="proctoring-indicator">🔒 PROCTORING ACTIVE</div>
+
+<!-- Spinner for AI grading -->
+<div id="spinner-overlay" class="spinner-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-label">AI анализирует ваш ответ...</div>
+</div>
+
+<!-- Header -->
+<div style="margin-bottom:8px;">
+  <span class="exam-mode-label">
+    {% if exam.type == 'MYP' %}🎓 Режим IB MYP
+    {% elif exam.type == 'Custom' %}🛠 Кастомный режим
+    {% else %}⚡ Стандартный режим{% endif %}
+  </span>
+</div>
+<h1 class="exam-title mb-2">{{ exam.title }}</h1>
+
+{% if already_submitted and result %}
+<!-- Result view (after POST-redirect-GET) -->
+<div class="alert alert-success">✅ Вы успешно сдали эту работу! Повторная отправка невозможна.</div>
+<div class="result-card">
+  <h3 style="margin-bottom:12px;color:#99ffaa;">🤖 Оценка AI:</h3>
+  <pre style="white-space:pre-wrap;font-family:inherit;color:#e0e0e0;line-height:1.7;">{{ result }}</pre>
+</div>
+<a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">← На главную</a>
+
+{% else %}
+
+<div class="exam-split">
+  <!-- Left: task + answer -->
+  <div>
+    <h3 class="mb-2">Условие задачи</h3>
+    <div class="scrollable mb-3">{{ exam.desc | safe }}</div>
+
+    <h3 class="mb-2">Ваш ответ</h3>
+    <form method="POST" action="{{ url_for('exam_submit', code=exam.code) }}" id="exam-form"
+      onsubmit="return onSubmit()">
+      <div class="form-group">
+        <label>Ваше полное имя (Имя и Фамилия)</label>
+        <input type="text" name="student_name" id="student-name" placeholder="Иванов Иван" required />
+      </div>
+      <div class="form-group">
+        <label>Напишите ваш ответ здесь...</label>
+        <textarea name="essay" id="essay-input" rows="14"
+          placeholder="Начните писать..."
+          required></textarea>
+      </div>
+      <div class="flex gap-1">
+        <button type="submit" class="btn" id="submit-btn">Отправить работу</button>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary"
+          onclick="return confirm('Уйти? Ваш ответ не будет сохранён.')">← На главную</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right: criteria + timer -->
+  <div>
+    <div class="alert alert-info mb-3" style="font-size:13px;">
+      🔒 <b>Прокторинг активен:</b> фиксируются переключение вкладок, выход из окна, копирование и вставка.
+    </div>
+
+    <h3 class="mb-2">Критерии оценивания</h3>
+    <div class="scrollable mb-3">{{ exam.criteria | safe }}</div>
+
+    {% if end_time_ms %}
+    <div id="exam-timer">⏳ Вычисление времени...</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Proctoring ──────────────────────────────────────────────────────────────
+var procViolations = 0;
+function showProcWarning(msg) {
+  var el = document.getElementById('proctoring-alert');
+  procViolations++;
+  el.textContent = 'Прокторинг: ' + msg + '. Нарушений: ' + procViolations;
+  el.style.display = 'block';
+  clearTimeout(window._procTimer);
+  window._procTimer = setTimeout(function(){ el.style.display = 'none'; }, 3000);
+}
+document.addEventListener('visibilitychange', function(){
+  if (document.hidden) showProcWarning('обнаружено переключение вкладки');
+});
+window.addEventListener('blur', function(){
+  showProcWarning('обнаружен выход из окна экзамена');
+});
+document.addEventListener('copy', function(e){ e.preventDefault(); showProcWarning('копирование заблокировано'); });
+document.addEventListener('paste', function(e){ e.preventDefault(); showProcWarning('вставка заблокирована'); });
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); showProcWarning('контекстное меню заблокировано'); });
+
+// ── Timer ───────────────────────────────────────────────────────────────────
+{% if end_time_ms %}
+var endTime = {{ end_time_ms }};
+var timerEl = document.getElementById('exam-timer');
+var submitBtn = document.getElementById('submit-btn');
+var essayInput = document.getElementById('essay-input');
+var timerInterval = setInterval(function(){
+  var now = Date.now();
+  var dist = endTime - now;
+  if (dist <= 0) {
+    clearInterval(timerInterval);
+    timerEl.innerHTML = '⏰ Время вышло!';
+    if (submitBtn) submitBtn.disabled = true;
+    if (essayInput) essayInput.disabled = true;
+  } else {
+    var m = Math.floor(dist / 60000);
+    var s = Math.floor((dist % 60000) / 1000);
+    if (s < 10) s = '0' + s;
+    timerEl.innerHTML = '⏳ Осталось: ' + m + ':' + s;
+    if (dist < 120000) timerEl.style.borderColor = '#ff8800';
+    if (dist < 60000) timerEl.style.borderColor = '#ff4b4b';
+  }
+}, 1000);
+{% endif %}
+
+// ── Submit spinner ──────────────────────────────────────────────────────────
+function onSubmit() {
+  var name = document.getElementById('student-name').value.trim();
+  var essay = document.getElementById('essay-input').value.trim();
+  if (!name || !essay) { return true; }
+  document.getElementById('spinner-overlay').classList.add('show');
+  return true;
+}
+</script>
+{% endblock %}

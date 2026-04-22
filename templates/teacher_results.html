@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Результаты — AdilEduAssessment{% endblock %}
+{% block content %}
+<div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:20px;">
+  <h1>📋 Результаты студентов</h1>
+  {% if data %}
+  <a class="btn btn-sm" href="{{ url_for('teacher_results_download') }}">📥 Скачать CSV</a>
+  {% endif %}
+</div>
+
+{% if data %}
+  {% for row in data | reverse %}
+  <details class="card mb-2" style="cursor:pointer;">
+    <summary style="padding:4px 0;font-weight:700;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+      <span>{{ row[0] }} — {{ row[1] }}</span>
+      <span style="color:#a18cd1;font-size:13px;">▼ развернуть</span>
+    </summary>
+    <div style="margin-top:16px;">
+      <h3 style="margin-bottom:8px;">Ответ:</h3>
+      <div class="scrollable mb-3">{{ row[2] }}</div>
+      <div class="alert alert-info">
+        <b>Оценка AI:</b><br>
+        <pre style="white-space:pre-wrap;margin-top:8px;font-family:inherit;color:#e0e0e0;">{{ row[3] }}</pre>
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+{% else %}
+<div class="alert alert-info">Пока нет ни одной сданной работы.</div>
+{% endif %}
+{% endblock %}

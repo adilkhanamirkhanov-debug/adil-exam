@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Все учителя — Admin{% endblock %}
+{% block content %}
+<h1>👥 Все зарегистрированные учителя</h1>
+<p class="text-muted mb-3">Всего: {{ teachers | length }}</p>
+
+{% if teachers %}
+<div class="card mb-4">
+  <table>
+    <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Администратор</th><th>Дата регистрации</th></tr></thead>
+    <tbody>
+      {% for t in teachers %}
+      <tr>
+        <td>{{ t['id'] }}</td>
+        <td>{{ t['username'] }}</td>
+        <td>{{ t['email'] }}</td>
+        <td>{{ '✅ Да' if t['is_admin'] else 'Нет' }}</td>
+        <td>{{ t['created_at'] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<hr />
+<h2 style="margin-bottom:16px;">🗑 Удалить учителя</h2>
+<form method="POST" action="{{ url_for('admin_delete_teacher') }}" style="max-width:400px;"
+  onsubmit="return confirm('Удалить учителя?')">
+  <div class="form-group">
+    <label>ID учителя для удаления</label>
+    <input type="number" name="teacher_id" min="1" placeholder="Введите ID" required />
+  </div>
+  <button type="submit" class="btn btn-danger">Удалить учителя</button>
+</form>
+{% else %}
+<div class="alert alert-info">Нет зарегистрированных учителей.</div>
+{% endif %}
+{% endblock %}

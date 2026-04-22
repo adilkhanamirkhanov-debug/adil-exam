@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}Создать задачу — AdilEduAssessment{% endblock %}
+
+{% block content %}
+<div id="spinner-overlay" class="spinner-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-label" id="spinner-label">AI обрабатывает...</div>
+</div>
+
+<h1>⚡ Конструктор задач</h1>
+<p class="text-muted mb-3">Заполните шаги ниже и опубликуйте задачу.</p>
+
+<!-- Step indicator -->
+<div class="step-indicator" id="step-indicator">
+  <div class="step-dot active" id="dot-1">1</div>
+  <div class="step-dot" id="dot-2">2</div>
+  <div class="step-dot" id="dot-3">3</div>
+  <div class="step-dot" id="dot-4">4</div>
+  <div class="step-dot" id="dot-5">5</div>
+</div>
+
+<form method="POST" action="{{ url_for('teacher_create') }}" enctype="multipart/form-data" id="create-form">
+
+  <!-- STEP 1: Type -->
+  <div class="wizard-step active" id="step-1">
+    <h2 style="margin-bottom:20px;">Шаг 1 — Выберите тип задачи</h2>
+    <div class="grid-3" style="margin-bottom:24px;">
+      <div class="task-type-card" id="card-Quick" onclick="selectType('Quick')">
+        <h3>⚡ Quick</h3>
+        <p>Быстрое эссе / краткий ответ. Одна рубрика, простая настройка.</p>
+      </div>
+      <div class="task-type-card" id="card-MYP" onclick="selectType('MYP')">
+        <h3>🎓 MYP</h3>
+        <p>Официальный формат IB MYP с предметными критериями A/B/C/D.</p>
+      </div>
+      <div class="task-type-card" id="card-Custom" onclick="selectType('Custom')">
+        <h3>🛠 Custom</h3>
+        <p>Полностью кастомная задача с загрузкой условий и рубрик.</p>
+      </div>
+    </div>
+    <input type="hidden" name="task_type" id="task_type_hidden" value="" />
+    <button type="button" class="btn" onclick="goStep(2)" id="btn-step1-next" disabled>Далее →</button>
+  </div>
+
+  <!-- STEP 2: Code & Title -->
+  <div class="wizard-step" id="step-2">
+    <h2 style="margin-bottom:20px;">Шаг 2 — Основная информация</h2>
+    <div class="form-group">
+      <label>🔑 Код доступа</label>
+      <div class="flex gap-1">
+        <input type="text" name="code" id="code-input" placeholder="EXAM-XXXXX" required />
+        <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="generateCode()">🎲 Генерировать</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>📌 Название задачи</label>
+      <input type="text" name="title" id="title-input" placeholder="Например: Итоговое эссе по истории" required />
+    </div>
+    <div class="flex gap-1">
+      <button type="button" class="btn btn-secondary" onclick="goStep(1)">← Назад</button>
+      <button type="button" class="btn" onclick="goStep(3)">Далее →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Description -->
+  <div class="wizard-step" id="step-3">
+    <h2 style="margin-bottom:20px;">Шаг 3 — Условие задачи</h2>
+
+    <!-- MYP fields -->
+    <div id="myp-fields" style="display:none;">
+      <div class="form-group">
+        <label>🏫 Предмет MYP</label>
+        <select name="myp_subject">
+          <option>Не указано</option>
+          <option>Науки (Sciences)</option>
+          <option>Математика (Mathematics)</option>
+          <option>Язык и литература</option>
+          <option>Приобретение языка</option>
+          <option>Индивидуумы и общества</option>
+          <option>Дизайн (Design)</option>
+          <option>Искусство (Arts)</option>
+          <option>Физкультура и здоровье (PHE)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>📎 Файл с условием (.docx / .txt)</label>
+        <input type="file" name="task_file" accept=".docx,.txt" style="padding:8px;" />
+      </div>
+      <div class="form-group">
+        <label>❓ Дополнительные вопросы (каждый с новой строки)</label>
+        <textarea name="task_questions" rows="4" placeholder="Вопрос 1&#10;Вопрос 2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>📎 Файл с рубрикой (необязательно)</label>
+        <input type="file" name="crit_file" accept=".docx,.txt" style="padding:8px;" />
+      </div>
+    </div>
+
+    <!-- Non-MYP fields -->
+    <div id="regular-fields">
+      <div class="form-group">
+        <label>📝 Текст задачи</label>
+        <textarea name="desc" id="desc-input" rows="6" placeholder="Опишите задачу для студента..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>📎 Загрузить файл с условием (.docx / .txt)</label>
+        <input type="file" name="desc_file" accept=".docx,.txt" style="padding:8px;" />
+      </div>
+    </div>
+
+    <div class="flex gap-1 mt-3">
+      <button type="button" class="btn btn-secondary" onclick="goStep(2)">← Назад</button>
+      <button type="button" class="btn" onclick="goStep(4)">Далее →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Criteria -->
+  <div class="wizard-step" id="step-4">
+    <h2 style="margin-bottom:12px;">Шаг 4 — Критерии оценивания</h2>
+    <p class="text-muted mb-3">Напишите критерии вручную или используйте AI-помощника:</p>
+
+    <div class="grid-3 mb-3">
+      <button type="button" class="btn btn-secondary" onclick="aiGenerateCriteria()">🤖 Сгенерировать (AI)</button>
+      <button type="button" class="btn btn-secondary" onclick="aiImproveCriteria()">✨ Улучшить (AI)</button>
+      <button type="button" class="btn btn-secondary" onclick="insertTemplate()">📋 Шаблон рубрики</button>
+    </div>
+
+    <div id="ai-status" class="alert alert-info mb-2" style="display:none;"></div>
+
+    <div class="form-group">
+      <textarea name="criteria" id="criteria-input" rows="10"
+        placeholder="Введите критерии вручную или используйте кнопки AI выше..."></textarea>
+    </div>
+
+    <div class="flex gap-1">
+      <button type="button" class="btn btn-secondary" onclick="goStep(3)">← Назад</button>
+      <button type="button" class="btn" onclick="goStep(5)">Далее →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Settings & Publish -->
+  <div class="wizard-step" id="step-5">
+    <h2 style="margin-bottom:20px;">Шаг 5 — Настройки</h2>
+
+    <div class="grid-2 mb-4">
+      <div>
+        <h3 class="mb-2">⏱ Время на выполнение</h3>
+        <div class="flex gap-1 mb-2" style="flex-wrap:wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setTime(0)">∞</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setTime(15)">15м</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setTime(30)">30м</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setTime(45)">45м</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setTime(60)">60м</button>
+        </div>
+        <div class="form-group">
+          <label>Минуты (0 = без ограничений)</label>
+          <input type="number" name="time_limit" id="time-input" min="0" max="300" value="45" />
+        </div>
+      </div>
+      <div>
+        <h3 class="mb-2">📊 Строгость оценивания</h3>
+        <div class="flex gap-1 mb-2">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setStrict(3)">🟢 Мягко</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setStrict(5)">🟡 Средне</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="setStrict(8)">🔴 Строго</button>
+        </div>
+        <div class="form-group">
+          <label>Строгость: <span id="strict-val">5</span>/10</label>
+          <input type="range" name="strictness" id="strict-input" min="1" max="10" value="5"
+            oninput="document.getElementById('strict-val').textContent = this.value;"
+            style="padding:4px 0;" />
+        </div>
+      </div>
+    </div>
+
+    <hr />
+    <div class="flex gap-1 mt-3">
+      <button type="button" class="btn btn-secondary" onclick="goStep(4)">← Назад</button>
+      <button type="submit" class="btn">🚀 Опубликовать задачу</button>
+    </div>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentStep = 1;
+let selectedType = '';
+
+const TEMPLATES = {
+  Quick: `### Критерии оценивания (100 баллов)
+- **Содержание (40 б):** Полнота раскрытия темы
+- **Структура (30 б):** Логичность, введение и заключение
+- **Язык (30 б):** Грамотность и стиль изложения`,
+  MYP: `### Критерий A: Знание и понимание (0-8)
+- 7-8: Полное и глубокое знание
+- 5-6: Хорошее знание с некоторыми пробелами
+- 3-4: Базовое знание
+- 1-2: Ограниченное знание
+
+### Критерий B: Анализ (0-8)
+- 7-8: Развёрнутый анализ
+- 5-6: Достаточный анализ
+- 3-4: Поверхностный анализ
+- 1-2: Минимальный анализ`,
+  Custom: `### Рубрика оценивания (10 баллов за каждый критерий)
+- **Понимание темы (10 б)**
+- **Аргументация (10 б)**
+- **Структура (10 б)**
+- **Язык и оформление (10 б)**
+- **Оригинальность (10 б)**`
+};
+
+function selectType(type) {
+  selectedType = type;
+  document.getElementById('task_type_hidden').value = type;
+  document.querySelectorAll('.task-type-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + type).classList.add('selected');
+  document.getElementById('btn-step1-next').disabled = false;
+
+  // Show/hide MYP vs regular fields
+  document.getElementById('myp-fields').style.display = (type === 'MYP') ? 'block' : 'none';
+  document.getElementById('regular-fields').style.display = (type === 'MYP') ? 'none' : 'block';
+}
+
+function goStep(n) {
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  document.getElementById('dot-' + currentStep).classList.remove('active');
+  document.getElementById('dot-' + currentStep).classList.add('done');
+  currentStep = n;
+  document.getElementById('step-' + currentStep).classList.add('active');
+  document.getElementById('dot-' + currentStep).classList.add('active');
+  document.getElementById('dot-' + currentStep).classList.remove('done');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function generateCode() {
+  const prefix = {Quick: 'FAST', MYP: 'MYP', Custom: 'CSTM'}[selectedType] || 'EXAM';
+  fetch('{{ url_for("teacher_generate_code") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prefix})
+  }).then(r => r.json()).then(d => {
+    document.getElementById('code-input').value = d.code;
+  });
+}
+
+function setTime(v) {
+  document.getElementById('time-input').value = v;
+}
+
+function setStrict(v) {
+  const input = document.getElementById('strict-input');
+  input.value = v;
+  document.getElementById('strict-val').textContent = v;
+}
+
+function insertTemplate() {
+  document.getElementById('criteria-input').value = TEMPLATES[selectedType] || '';
+}
+
+function showSpinner(label) {
+  document.getElementById('spinner-label').textContent = label;
+  document.getElementById('spinner-overlay').classList.add('show');
+}
+function hideSpinner() {
+  document.getElementById('spinner-overlay').classList.remove('show');
+}
+
+function aiGenerateCriteria() {
+  const title = document.getElementById('title-input').value.trim() || 'Без названия';
+  const desc = document.getElementById('desc-input') ? document.getElementById('desc-input').value.trim() : '';
+  const subject = document.querySelector('select[name="myp_subject"]') ? document.querySelector('select[name="myp_subject"]').value : '';
+  showSpinner('AI генерирует критерии...');
+  fetch('{{ url_for("teacher_ai_criteria") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title, desc, exam_type: selectedType, subject})
+  }).then(r => r.json()).then(d => {
+    hideSpinner();
+    if (d.criteria) {
+      document.getElementById('criteria-input').value = d.criteria;
+      const status = document.getElementById('ai-status');
+      status.textContent = '✅ AI сгенерировал критерии. Вы можете отредактировать их.';
+      status.style.display = 'block';
+    } else {
+      alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+    }
+  }).catch(() => { hideSpinner(); alert('Ошибка соединения с AI.'); });
+}
+
+function aiImproveCriteria() {
+  const existing = document.getElementById('criteria-input').value.trim();
+  if (!existing) { alert('Сначала введите или сгенерируйте критерии.'); return; }
+  showSpinner('AI улучшает критерии...');
+  fetch('{{ url_for("teacher_ai_improve") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({criteria: existing, exam_type: selectedType})
+  }).then(r => r.json()).then(d => {
+    hideSpinner();
+    if (d.criteria) {
+      document.getElementById('criteria-input').value = d.criteria;
+      const status = document.getElementById('ai-status');
+      status.textContent = '✨ AI улучшил критерии.';
+      status.style.display = 'block';
+    } else {
+      alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+    }
+  }).catch(() => { hideSpinner(); alert('Ошибка соединения с AI.'); });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Все задачи — Admin{% endblock %}
+{% block content %}
+<h1>📚 Все задачи на платформе</h1>
+<p class="text-muted mb-3">Всего: {{ exams | length }}</p>
+
+{% if exams %}
+<div class="card mb-4">
+  <table>
+    <thead><tr><th>Код</th><th>Название</th><th>Тип</th><th>Время (мин)</th><th>Учитель</th></tr></thead>
+    <tbody>
+      {% for e in exams %}
+      <tr>
+        <td><code style="color:#a18cd1;">{{ e['code'] }}</code></td>
+        <td>{{ e['title'] }}</td>
+        <td>{{ e['type'] }}</td>
+        <td>{{ e['time_limit'] if e['time_limit'] else '∞' }}</td>
+        <td>{{ e['username'] or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<hr />
+<h2 style="margin-bottom:16px;">🗑 Удалить задачу по коду</h2>
+<form method="POST" action="{{ url_for('admin_delete_task') }}" style="max-width:400px;"
+  onsubmit="return confirm('Удалить задачу?')">
+  <div class="form-group">
+    <label>Код задачи</label>
+    <input type="text" name="code" placeholder="Например: MYP-AB12C" required />
+  </div>
+  <button type="submit" class="btn btn-danger">Удалить задачу</button>
+</form>
+{% else %}
+<div class="alert alert-info">Нет задач на платформе.</div>
+{% endif %}
+{% endblock %}
