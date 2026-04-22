@@ -167,6 +167,7 @@ if "teacher_bio_saved" not in st.session_state: st.session_state.teacher_bio_sav
 if "teacher_avatar" not in st.session_state: st.session_state.teacher_avatar = None
 if "profile_public_saved" not in st.session_state: st.session_state.profile_public_saved = True
 if "profile_public" not in st.session_state: st.session_state.profile_public = st.session_state.profile_public_saved
+if "teacher_workspace_mode" not in st.session_state: st.session_state.teacher_workspace_mode = "🎯 Focus mode"
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
@@ -358,7 +359,7 @@ def build_teacher_profile(stats, total_submissions):
     level = max(1, (xp // 100) + 1)
     current_level_base = (level - 1) * 100
     next_level_xp = level * 100
-    level_progress = 0.0 if next_level_xp == current_level_base else (xp - current_level_base) / (next_level_xp - current_level_base)
+    level_progress = (xp - current_level_base) / (next_level_xp - current_level_base)
     level_progress = max(0.0, min(1.0, level_progress))
     return {
         "total_exams": total_exams,
