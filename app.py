@@ -666,6 +666,67 @@ elif st.session_state.role == "Teacher":
             st.query_params.clear()
             st.rerun()
 
+        st.markdown("---")
+        with st.expander("📖 Инструкция по платформе", expanded=False):
+            st.markdown("""
+**🔐 Вход и регистрация**
+- Зарегистрируйтесь, введя имя, email и пароль (мин. 6 символов).
+- Войдите по username или email.
+- Если у вас есть код администратора — введите его при регистрации.
+
+---
+
+**⚡ Создание задачи**
+
+Нажмите **«Создать задачу»** в меню. Выберите тип:
+
+- **Quick** — быстрое эссе / краткий ответ. Одна рубрика, простая настройка.
+- **MYP** — официальный формат IB MYP с критериями A/B/C/D по предмету.
+- **Custom** — полностью кастомная задача.
+
+**Шаги конструктора:**
+1. Введите код доступа (или нажмите 🎲 для автогенерации).
+2. Укажите название задачи.
+3. Напишите условие задачи (или загрузите файл .docx/.txt).
+4. Добавьте критерии оценивания вручную или с помощью кнопок AI.
+5. Для MYP: выберите предмет и критерии, добавьте критерии успеха.
+6. Настройте время и строгость AI-оценивания.
+7. Нажмите **«Опубликовать»**.
+
+---
+
+**🤖 AI-помощник**
+- **Сгенерировать критерии** — AI создаёт рубрику по названию и условию задачи.
+- **Улучшить критерии** — AI дорабатывает уже введённые критерии.
+- **Шаблон рубрики** — вставляет готовый шаблон для выбранного типа задачи.
+- **🤖 AI** (в MYP) — генерирует критерии успеха для конкретного критерия.
+
+---
+
+**📤 Раздача кода студентам**
+- После публикации задачи скопируйте **код доступа**.
+- Студент вводит код на главной странице платформы и начинает экзамен.
+
+---
+
+**📋 Результаты**
+- В разделе **«Результаты»** отображаются все работы ваших студентов.
+- Можно просмотреть ответ и AI-оценку каждого студента.
+- Нажмите **«Скачать CSV»**, чтобы сохранить таблицу результатов.
+
+---
+
+**⏱ Таймер и прокторинг**
+- Установите лимит времени (0 = без ограничений).
+- Прокторинг автоматически фиксирует: переключение вкладок, выход из окна, копирование и вставку.
+
+---
+
+**❓ Если что-то пошло не так**
+- При ошибке AI появится сообщение **«Операция не прошла»** — просто попробуйте ещё раз.
+- Данные задач сохраняются в базе и не теряются при обновлении страницы.
+""")
+
     if menu_selection == "Дашборд":
         st.header("📊 Профиль и статистика")
         stats, total_submissions = get_teacher_stats(teacher_id)
@@ -827,6 +888,9 @@ elif st.session_state.role == "Teacher":
                     with sc_col1:
                         if f"sc_{letter}" not in st.session_state:
                             st.session_state[f"sc_{letter}"] = st.session_state.myp_success_criteria.get(letter, "")
+                        pending_key = f"sc_pending_{letter}"
+                        if pending_key in st.session_state:
+                            st.session_state[f"sc_{letter}"] = st.session_state.pop(pending_key)
                         st.text_area(
                             f"Критерии успеха {letter}",
                             key=f"sc_{letter}",
@@ -842,15 +906,18 @@ elif st.session_state.role == "Teacher":
                             type="secondary",
                             help=f"Сгенерировать критерии успеха для {letter} с помощью AI"
                         ):
-                            with st.spinner(f"AI генерирует критерии {letter}..."):
-                                ai_sc = generate_criteria_with_ai(
-                                    nt.strip() or "Без названия",
-                                    conditions_text.strip() or "Описание не указано",
-                                    "MYP",
-                                    subject=f"{myp_subject} — Критерий {letter}: {crit_name}"
-                                )
-                            st.session_state[f"sc_{letter}"] = ai_sc
-                            st.rerun()
+                            try:
+                                with st.spinner(f"AI генерирует критерии {letter}..."):
+                                    ai_sc = generate_criteria_with_ai(
+                                        nt.strip() or "Без названия",
+                                        conditions_text.strip() or "Описание не указано",
+                                        "MYP",
+                                        subject=f"{myp_subject} — Критерий {letter}: {crit_name}"
+                                    )
+                                st.session_state[f"sc_pending_{letter}"] = ai_sc
+                                st.rerun()
+                            except Exception:
+                                st.error("⚠️ Операция не прошла. Попробуйте ещё раз.")
 
             # ── Шаг 6: Максимальный балл ─────────────────────────────────
             st.markdown("---")
@@ -1000,25 +1067,31 @@ elif st.session_state.role == "Teacher":
             ai_col1, ai_col2, ai_col3 = st.columns(3)
             with ai_col1:
                 if st.button("🤖 Сгенерировать критерии (AI)", type="secondary"):
-                    task_title_for_ai = nt.strip() or "Без названия"
-                    task_desc_for_ai = (c_desc or task_questions or "Описание не указано").strip()
-                    with st.spinner("AI генерирует критерии..."):
-                        result = generate_criteria_with_ai(
-                            task_title_for_ai, task_desc_for_ai, task_variant,
-                            subject=myp_subject
-                        )
-                        st.session_state.ai_criteria_result = result
-                        st.session_state["wizard_criteria"] = result
-                    st.rerun()
+                    try:
+                        task_title_for_ai = nt.strip() or "Без названия"
+                        task_desc_for_ai = (c_desc or task_questions or "Описание не указано").strip()
+                        with st.spinner("AI генерирует критерии..."):
+                            result = generate_criteria_with_ai(
+                                task_title_for_ai, task_desc_for_ai, task_variant,
+                                subject=myp_subject
+                            )
+                            st.session_state.ai_criteria_result = result
+                            st.session_state["wizard_criteria"] = result
+                        st.rerun()
+                    except Exception:
+                        st.error("⚠️ Операция не прошла. Попробуйте ещё раз.")
             with ai_col2:
                 if st.button("✨ Улучшить критерии (AI)", type="secondary"):
                     existing = st.session_state.get("wizard_criteria", st.session_state.ai_criteria_result).strip()
                     if existing:
-                        with st.spinner("AI улучшает критерии..."):
-                            result = improve_criteria_with_ai(existing, task_variant)
-                            st.session_state.ai_criteria_result = result
-                            st.session_state["wizard_criteria"] = result
-                        st.rerun()
+                        try:
+                            with st.spinner("AI улучшает критерии..."):
+                                result = improve_criteria_with_ai(existing, task_variant)
+                                st.session_state.ai_criteria_result = result
+                                st.session_state["wizard_criteria"] = result
+                            st.rerun()
+                        except Exception:
+                            st.error("⚠️ Операция не прошла. Попробуйте ещё раз.")
                     else:
                         st.warning("Сначала введите или сгенерируйте критерии.")
             with ai_col3:
@@ -1392,14 +1465,17 @@ elif st.session_state.role == "Student":
                         if c.fetchone():
                             st.error(f"Ученик '{s_name}' уже сдавал этот экзамен.")
                         else:
-                            with st.spinner("AI анализирует ваш ответ..."):
-                                grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
-                                c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
-                                db_conn.commit()
-                                
-                                st.session_state.exam_submitted = True
-                                st.session_state.student_grade = grade
-                                st.rerun()
+                            try:
+                                with st.spinner("AI анализирует ваш ответ..."):
+                                    grade = grade_essay(exam['title'], exam['desc'], exam['criteria'], exam['strictness'], s_essay, exam["type"])
+                                    c.execute("INSERT INTO submissions (name, title, essay, grade) VALUES (?,?,?,?)", (s_name, exam['title'], s_essay, grade))
+                                    db_conn.commit()
+                                    
+                                    st.session_state.exam_submitted = True
+                                    st.session_state.student_grade = grade
+                                    st.rerun()
+                            except Exception:
+                                st.error("⚠️ Операция не прошла. Попробуйте ещё раз.")
                     else: 
                         st.warning("Пожалуйста, заполните имя и напишите ответ.")
             with col_bt2:
