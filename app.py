@@ -5,6 +5,7 @@ import string
 import sqlite3
 import io
 import time as _time
+import logging
 
 import pandas as pd
 import mammoth
@@ -16,6 +17,8 @@ from flask import (
 )
 from dotenv import load_dotenv
 from functools import wraps
+
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
@@ -447,7 +450,7 @@ def teacher_create():
             c_desc = request.form.get("desc", "").strip()
             c_file = request.files.get("desc_file")
             file_desc = read_uploaded_file(c_file)
-            desc_parts = [p for p in [c_desc, file_desc.strip()] if p]
+            desc_parts = [p.strip() for p in [c_desc, file_desc] if p.strip()]
             final_desc = "<br>".join(desc_parts) or "Описание не указано."
             final_crit = criteria_manual or "Оценить по содержательности, структуре и аргументации."
 
@@ -485,7 +488,8 @@ def teacher_ai_criteria():
             difficulty=data.get("difficulty", "Medium")
         )
         return jsonify({"criteria": result})
-    except Exception:
+    except Exception as exc:
+        logging.exception("AI criteria generation failed: %s", exc)
         return jsonify({"error": "AI service error. Please try again."}), 500
 
 
@@ -499,7 +503,8 @@ def teacher_ai_improve():
     try:
         result = improve_criteria_with_ai(existing, data.get("exam_type", "Quick"))
         return jsonify({"criteria": result})
-    except Exception:
+    except Exception as exc:
+        logging.exception("AI criteria improvement failed: %s", exc)
         return jsonify({"error": "AI service error. Please try again."}), 500
 
 
@@ -658,7 +663,11 @@ def exam_page(code):
 
     end_time_ms = None
     if exam["time_limit"] and exam["time_limit"] > 0:
-        end_time_ms = int((_time.time() + exam["time_limit"] * 60) * 1000)
+        # Persist end time in session so page refreshes don't reset the timer
+        timer_key = f"exam_end_time_{code}"
+        if timer_key not in session:
+            session[timer_key] = int((_time.time() + exam["time_limit"] * 60) * 1000)
+        end_time_ms = session[timer_key]
 
     result = session.pop("exam_result", None)
     already_submitted = session.pop("exam_submitted", False)
@@ -690,6 +699,14 @@ def exam_submit(code):
         flash("Пожалуйста, заполните имя и напишите ответ.", "error")
         return redirect(url_for("exam_page", code=code))
 
+    # Server-side time limit enforcement
+    if exam["time_limit"] and exam["time_limit"] > 0:
+        timer_key = f"exam_end_time_{code}"
+        end_time_ms = session.get(timer_key)
+        if end_time_ms and int(_time.time() * 1000) > end_time_ms:
+            flash("Время на выполнение экзамена истекло. Работа не принята.", "error")
+            return redirect(url_for("exam_page", code=code))
+
     existing = db.execute(
         "SELECT id FROM submissions WHERE name=? AND title=?",
         (s_name, exam["title"])
@@ -714,6 +731,8 @@ def exam_submit(code):
 
     session["exam_result"] = grade
     session["exam_submitted"] = True
+    # Clear the timer for this exam from session
+    session.pop(f"exam_end_time_{code}", None)
     return redirect(url_for("exam_page", code=code))
 
 
