@@ -7,6 +7,7 @@ import string
 import time 
 import re
 import json
+import imghdr
 from datetime import datetime
 import mammoth 
 import streamlit.components.v1 as components
@@ -164,7 +165,8 @@ if "wizard_criteria" not in st.session_state: st.session_state.wizard_criteria =
 if "teacher_status_saved" not in st.session_state: st.session_state.teacher_status_saved = "Создаю сильные экзамены с AI 🚀"
 if "teacher_bio_saved" not in st.session_state: st.session_state.teacher_bio_saved = "Преподаватель и наставник. Люблю понятные критерии и честную проверку."
 if "teacher_avatar" not in st.session_state: st.session_state.teacher_avatar = None
-if "profile_public" not in st.session_state: st.session_state.profile_public = True
+if "profile_public_saved" not in st.session_state: st.session_state.profile_public_saved = True
+if "profile_public" not in st.session_state: st.session_state.profile_public = st.session_state.profile_public_saved
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
@@ -350,6 +352,7 @@ def get_teacher_stats(teacher_id):
     return type_counts, submissions_count
 
 def build_teacher_profile(stats, total_submissions):
+    """Builds a simple progress profile from available totals (no timestamp data available)."""
     total_exams = int(sum(stats.values()))
     xp = total_exams * 12 + total_submissions * 7
     level = max(1, (xp // 100) + 1)
@@ -363,7 +366,7 @@ def build_teacher_profile(stats, total_submissions):
         "level": level,
         "next_level_xp": next_level_xp,
         "level_progress": level_progress,
-        "streak": min(30, max(1, total_exams + (total_submissions // 2))),
+        "activity_index": min(100, total_exams * 10 + total_submissions * 3),
         "impact_score": total_exams * 5 + total_submissions * 2,
     }
 
@@ -788,7 +791,14 @@ elif st.session_state.role == "Teacher":
             st.markdown("### 👤 Профиль")
             avatar_file = st.file_uploader("Загрузить аватар", type=["png", "jpg", "jpeg"], key="teacher_avatar_upload")
             if avatar_file is not None:
-                st.session_state.teacher_avatar = avatar_file.getvalue()
+                avatar_bytes = avatar_file.getvalue()
+                detected_type = imghdr.what(None, avatar_bytes)
+                if len(avatar_bytes) > 5 * 1024 * 1024:
+                    st.warning("Размер аватарки должен быть не больше 5MB.")
+                elif detected_type not in {"png", "jpeg"}:
+                    st.warning("Загрузите изображение в формате PNG или JPG.")
+                else:
+                    st.session_state.teacher_avatar = avatar_bytes
 
             if st.session_state.teacher_avatar:
                 st.image(st.session_state.teacher_avatar, width=140)
@@ -815,6 +825,7 @@ elif st.session_state.role == "Teacher":
             if st.button("Сохранить профиль", type="secondary"):
                 st.session_state.teacher_status_saved = st.session_state.teacher_status_input.strip() or st.session_state.teacher_status_saved
                 st.session_state.teacher_bio_saved = st.session_state.teacher_bio_input.strip() or st.session_state.teacher_bio_saved
+                st.session_state.profile_public_saved = st.session_state.profile_public
                 st.success("Профиль обновлён.")
 
             st.markdown("### ⚡ Быстрые действия")
@@ -839,7 +850,7 @@ elif st.session_state.role == "Teacher":
                 f"""<div class="cabinet-hero">
                 <div class="cabinet-hero-title">{teacher_username}</div>
                 <div class="cabinet-hero-subtitle">{st.session_state.teacher_status_saved}</div>
-                <div class="cabinet-hero-note">Уровень {profile['level']} · XP: {profile['xp']} / {profile['next_level_xp']}</div>
+                <div class="cabinet-hero-note">Уровень {profile['level']} · XP: {profile['xp']} / {profile['next_level_xp']} · Профиль: {"публичный" if st.session_state.profile_public_saved else "приватный"}</div>
                 </div>""",
                 unsafe_allow_html=True
             )
@@ -848,14 +859,14 @@ elif st.session_state.role == "Teacher":
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("🧪 Всего задач", profile["total_exams"])
             m2.metric("📨 Работ проверено", total_submissions)
-            m3.metric("🔥 Серия активности", f"{profile['streak']} дн")
+            m3.metric("🔥 Индекс активности", profile["activity_index"])
             m4.metric("⭐ Impact score", profile["impact_score"])
 
-            st.markdown("### 🎯 Еженедельные цели")
+            st.markdown("### 🎯 Цели кабинета")
             goal_col1, goal_col2 = st.columns(2)
             with goal_col1:
-                weekly_exam_goal = st.slider("Новые задачи", 1, 20, 6, key="weekly_exam_goal")
-                weekly_result_goal = st.slider("Проверенные работы", 1, 50, 12, key="weekly_result_goal")
+                weekly_exam_goal = st.slider("Цель по задачам", 1, 20, 6, key="weekly_exam_goal")
+                weekly_result_goal = st.slider("Цель по проверкам", 1, 50, 12, key="weekly_result_goal")
             with goal_col2:
                 exam_goal_progress = min(1.0, profile["total_exams"] / max(1, weekly_exam_goal))
                 result_goal_progress = min(1.0, total_submissions / max(1, weekly_result_goal))
@@ -895,7 +906,7 @@ elif st.session_state.role == "Teacher":
                         "Код": exam_code,
                         "Название": exam_title,
                         "Тип": exam_type,
-                        "Время (мин)": exam_time if exam_time else "∞",
+                        "Время (мин)": str(exam_time) if exam_time else "∞",
                     }
                     for exam_code, exam_title, exam_type, exam_time in all_teacher_exams
                 ]
