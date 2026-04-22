@@ -245,3 +245,79 @@ img {
 [data-testid="stMetricLabel"] {
     color: rgba(255,255,255,0.7) !important;
 }
+
+/* TEACHER PERSONAL CABINET */
+.avatar-placeholder {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px dashed rgba(161,140,209,0.75);
+    background: rgba(255,255,255,0.03);
+    color: #a18cd1;
+    font-size: 48px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px 0 4px 0;
+}
+.avatar-hint {
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.cabinet-hero {
+    border: 1px solid rgba(123,227,255,0.35);
+    background: linear-gradient(135deg, rgba(106,17,203,0.25), rgba(37,117,252,0.15));
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+.cabinet-hero-title { font-size: 22px; font-weight: 800; color: #fbc2eb; }
+.cabinet-hero-subtitle { font-size: 14px; color: #e8d9ff; margin-top: 2px; }
+.cabinet-hero-note { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 6px; }
+.goal-chip {
+    margin-top: 8px;
+    background: rgba(123,227,255,0.12);
+    border: 1px solid rgba(123,227,255,0.35);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #7be3ff;
+    text-align: center;
+    font-weight: 700;
+}
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.achievement-card {
+    border-radius: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+    font-size: 14px;
+    font-weight: 700;
+}
+.achievement-card small {
+    margin-top: 6px;
+    display: block;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 500;
+}
+.achievement-card.badge-on {
+    border-color: rgba(75,255,75,0.45);
+    background: rgba(75,255,75,0.08);
+}
+.achievement-card.badge-off {
+    border-color: rgba(255,255,255,0.14);
+    opacity: 0.88;
+}
+
+@media (max-width: 900px) {
+    .achievement-grid {
+        grid-template-columns: 1fr;
+    }
+}

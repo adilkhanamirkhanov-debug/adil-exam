@@ -7,6 +7,7 @@ import string
 import time 
 import re
 import json
+import imghdr
 from datetime import datetime
 import mammoth 
 import streamlit.components.v1 as components
@@ -161,6 +162,12 @@ if "myp_tasks" not in st.session_state: st.session_state.myp_tasks = [{"text": "
 if "myp_task_counter" not in st.session_state: st.session_state.myp_task_counter = 1
 if "myp_success_criteria" not in st.session_state: st.session_state.myp_success_criteria = {}
 if "wizard_criteria" not in st.session_state: st.session_state.wizard_criteria = ""
+if "teacher_status_saved" not in st.session_state: st.session_state.teacher_status_saved = "Создаю сильные экзамены с AI 🚀"
+if "teacher_bio_saved" not in st.session_state: st.session_state.teacher_bio_saved = "Преподаватель и наставник. Люблю понятные критерии и честную проверку."
+if "teacher_avatar" not in st.session_state: st.session_state.teacher_avatar = None
+if "profile_public_saved" not in st.session_state: st.session_state.profile_public_saved = True
+if "profile_public" not in st.session_state: st.session_state.profile_public = st.session_state.profile_public_saved
+if "teacher_workspace_mode" not in st.session_state: st.session_state.teacher_workspace_mode = "🎯 Focus mode"
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
@@ -344,6 +351,36 @@ def get_teacher_stats(teacher_id):
     c.execute(f"SELECT COUNT(*) FROM submissions WHERE title IN ({placeholders})", safe_titles)
     submissions_count = c.fetchone()[0]
     return type_counts, submissions_count
+
+def build_teacher_profile(stats, total_submissions):
+    """Builds a simple progress profile from available totals (no timestamp data available)."""
+    total_exams = int(sum(stats.values()))
+    xp = total_exams * 12 + total_submissions * 7
+    level = max(1, (xp // 100) + 1)
+    current_level_base = (level - 1) * 100
+    next_level_xp = level * 100
+    level_span = next_level_xp - current_level_base
+    level_progress = (xp - current_level_base) / level_span if level_span else 0.0
+    level_progress = max(0.0, min(1.0, level_progress))
+    return {
+        "total_exams": total_exams,
+        "xp": xp,
+        "level": level,
+        "next_level_xp": next_level_xp,
+        "level_progress": level_progress,
+        "activity_index": min(100, total_exams * 10 + total_submissions * 3),
+        "impact_score": total_exams * 5 + total_submissions * 2,
+    }
+
+def get_teacher_achievements(stats, total_submissions, total_exams):
+    return [
+        ("🚀 Первый запуск", total_exams >= 1, "Создать первую задачу"),
+        ("🎯 Конструктор мастер", total_exams >= 5, "Опубликовать 5 задач"),
+        ("📨 Проверка потока", total_submissions >= 10, "Получить 10 отправленных работ"),
+        ("🎓 MYP Pro", stats.get("MYP", 0) >= 3, "Сделать 3 MYP задачи"),
+        ("⚡ Speed Creator", stats.get("Quick", 0) >= 3, "Сделать 3 Quick задачи"),
+        ("🧠 Автор кастома", stats.get("Custom", 0) >= 2, "Сделать 2 Custom задачи"),
+    ]
 
 def build_in_clause(values):
     """Build parameter placeholders and normalized values for SQL IN clauses."""
@@ -719,12 +756,15 @@ elif st.session_state.role == "Teacher":
         </div>
         """, unsafe_allow_html=True)
         st.markdown("---")
+        teacher_menu_options = ["🏠 Личный кабинет", "⚡ Создать задачу", "📋 Результаты"]
+        if st.session_state.get("teacher_menu_selection") not in teacher_menu_options:
+            st.session_state.teacher_menu_selection = teacher_menu_options[0]
         menu_selection = st.radio(
             "Навигация:",
-            ["📊 Дашборд", "⚡ Создать задачу", "📋 Результаты"],
+            teacher_menu_options,
+            key="teacher_menu_selection",
             label_visibility="collapsed"
         )
-        menu_selection = menu_selection.split(" ", 1)[-1].strip()
         st.markdown("---")
         if st.button("🚪 Выйти", type="primary"):
             st.session_state.role = None
@@ -732,6 +772,7 @@ elif st.session_state.role == "Teacher":
             st.session_state.teacher_username = None
             st.session_state.task_step = 1
             st.session_state.task_type_sel = None
+            st.session_state.pop("teacher_menu_selection", None)
             st.query_params.clear()
             st.rerun()
 
@@ -739,23 +780,141 @@ elif st.session_state.role == "Teacher":
     with st.expander("🪟 Инструкция по платформе", expanded=False):
         st.markdown(PLATFORM_INSTRUCTION_MD)
 
-    if menu_selection == "Дашборд":
-        st.header("📊 Профиль и статистика")
+    if menu_selection == "🏠 Личный кабинет":
+        st.header("🏠 Личный кабинет преподавателя")
         stats, total_submissions = get_teacher_stats(teacher_id)
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("⚡ Quick задач", stats.get("Quick", 0))
-        c2.metric("🎓 MYP задач", stats.get("MYP", 0))
-        c3.metric("🛠 Custom задач", stats.get("Custom", 0))
-        c4.metric("📨 Сданных работ", total_submissions)
-        st.info("Здесь отображаются только ваши экзамены и связанные результаты.")
-        st.markdown("### Мои экзамены")
         all_teacher_exams = get_teacher_exams(teacher_id)
-        if not all_teacher_exams:
-            st.caption("Пока нет опубликованных задач.")
-        for exam_code, exam_title, exam_type, exam_time in all_teacher_exams:
-            st.markdown(f"- **{exam_title}** (`{exam_type}`) — код: `{exam_code}`, время: {exam_time} мин.")
+        profile = build_teacher_profile(stats, total_submissions)
+        achievements = get_teacher_achievements(stats, total_submissions, profile["total_exams"])
 
-    elif menu_selection == "Создать задачу":
+        left_col, right_col = st.columns([1.05, 1.95], gap="large")
+
+        with left_col:
+            st.markdown("### 👤 Профиль")
+            avatar_file = st.file_uploader("Загрузить аватар", type=["png", "jpg", "jpeg"], key="teacher_avatar_upload")
+            if avatar_file is not None:
+                avatar_bytes = avatar_file.getvalue()
+                detected_type = imghdr.what(None, avatar_bytes)
+                if len(avatar_bytes) > 5 * 1024 * 1024:
+                    st.warning("Размер аватарки должен быть не больше 5MB.")
+                elif detected_type not in {"png", "jpeg"}:
+                    st.warning("Загрузите изображение в формате PNG или JPG.")
+                else:
+                    st.session_state.teacher_avatar = avatar_bytes
+
+            if st.session_state.teacher_avatar:
+                st.image(st.session_state.teacher_avatar, width=140)
+            else:
+                st.markdown(
+                    """<div class="avatar-placeholder">+</div><div class="avatar-hint">Место для аватарки</div>""",
+                    unsafe_allow_html=True
+                )
+
+            st.text_input(
+                "Статус профиля",
+                key="teacher_status_input",
+                value=st.session_state.teacher_status_saved,
+                placeholder="Например: Готовлю финальный модуль"
+            )
+            st.text_area(
+                "О себе",
+                key="teacher_bio_input",
+                value=st.session_state.teacher_bio_saved,
+                height=110,
+                placeholder="Коротко о вашей преподавательской стратегии..."
+            )
+            st.toggle("Публичный профиль", key="profile_public")
+            if st.button("Сохранить профиль", type="secondary"):
+                st.session_state.teacher_status_saved = st.session_state.teacher_status_input.strip()
+                st.session_state.teacher_bio_saved = st.session_state.teacher_bio_input.strip()
+                st.session_state.profile_public_saved = st.session_state.profile_public
+                st.success("Профиль обновлён.")
+
+            st.markdown("### ⚡ Быстрые действия")
+            qa1, qa2 = st.columns(2)
+            with qa1:
+                if st.button("➕ Новая задача", use_container_width=True):
+                    st.session_state.teacher_menu_selection = "⚡ Создать задачу"
+                    st.rerun()
+            with qa2:
+                if st.button("📋 Смотреть работы", use_container_width=True):
+                    st.session_state.teacher_menu_selection = "📋 Результаты"
+                    st.rerun()
+
+            st.selectbox(
+                "Режим кабинета",
+                ["🎯 Focus mode", "🤝 Mentor mode", "⚡ Sprint mode"],
+                key="teacher_workspace_mode"
+            )
+
+        with right_col:
+            st.markdown(
+                f"""<div class="cabinet-hero">
+                <div class="cabinet-hero-title">{teacher_username}</div>
+                <div class="cabinet-hero-subtitle">{st.session_state.teacher_status_saved}</div>
+                <div class="cabinet-hero-note">Уровень {profile['level']} · XP: {profile['xp']} / {profile['next_level_xp']} · Профиль: {"публичный" if st.session_state.profile_public_saved else "приватный"}</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
+            st.progress(profile["level_progress"], text=f"Прогресс уровня: {int(profile['level_progress'] * 100)}%")
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("🧪 Всего задач", profile["total_exams"])
+            m2.metric("📨 Работ проверено", total_submissions)
+            m3.metric("🔥 Индекс активности", profile["activity_index"])
+            m4.metric("⭐ Impact score", profile["impact_score"])
+
+            st.markdown("### 🎯 Цели кабинета")
+            goal_col1, goal_col2 = st.columns(2)
+            with goal_col1:
+                exam_goal = st.slider("Цель по задачам", 1, 20, 6, key="cabinet_exam_goal")
+                result_goal = st.slider("Цель по проверкам", 1, 50, 12, key="cabinet_result_goal")
+            with goal_col2:
+                exam_goal_progress = min(1.0, profile["total_exams"] / max(1, exam_goal))
+                result_goal_progress = min(1.0, total_submissions / max(1, result_goal))
+                combined = int(((exam_goal_progress + result_goal_progress) / 2) * 100)
+                st.progress(exam_goal_progress, text=f"Задачи: {int(exam_goal_progress * 100)}%")
+                st.progress(result_goal_progress, text=f"Работы: {int(result_goal_progress * 100)}%")
+                st.markdown(f'<div class="goal-chip">Общий прогресс: {combined}%</div>', unsafe_allow_html=True)
+
+            st.markdown("### 🏅 Достижения")
+            achievement_cards = []
+            for badge, unlocked, rule in achievements:
+                status_cls = "badge-on" if unlocked else "badge-off"
+                status_text = "Открыто" if unlocked else f"Цель: {rule}"
+                achievement_cards.append(
+                    f'<div class="achievement-card {status_cls}"><div>{badge}</div><small>{status_text}</small></div>'
+                )
+            st.markdown(f'<div class="achievement-grid">{"".join(achievement_cards)}</div>', unsafe_allow_html=True)
+
+            st.markdown("### 🔔 Центр уведомлений")
+            notifications = []
+            if not all_teacher_exams:
+                notifications.append("✨ Начните с первой задачи — это откроет прогресс в достижениях.")
+            if total_submissions == 0:
+                notifications.append("📥 Пока нет отправок. Поделитесь кодом доступа с учениками.")
+            if stats.get("MYP", 0) == 0:
+                notifications.append("🎓 Добавьте MYP задачу, чтобы расширить формат оценивания.")
+            notifications.append(f"🚀 Активный режим: {st.session_state.teacher_workspace_mode}")
+            for note in notifications:
+                st.markdown(f"- {note}")
+
+            st.markdown("### 📚 Мои экзамены")
+            if not all_teacher_exams:
+                st.caption("Пока нет опубликованных задач.")
+            else:
+                exam_rows = [
+                    {
+                        "Код": exam_code,
+                        "Название": exam_title,
+                        "Тип": exam_type,
+                        "Время (мин)": str(exam_time) if exam_time else "Неограниченно",
+                    }
+                    for exam_code, exam_title, exam_type, exam_time in all_teacher_exams
+                ]
+                st.dataframe(pd.DataFrame(exam_rows), use_container_width=True, hide_index=True)
+
+    elif menu_selection == "⚡ Создать задачу":
         st.header("⚡ Конструктор задач")
 
         # ── STEP 1: choose task type ─────────────────────────────────────────
@@ -1182,7 +1341,7 @@ elif st.session_state.role == "Teacher":
                     else:
                         st.error(save_message)
 
-    elif menu_selection == "Результаты":
+    elif menu_selection == "📋 Результаты":
         st.header("📋 Результаты студентов")
         c = db_conn.cursor()
         c.execute("SELECT title FROM exams_v3 WHERE teacher_id=?", (teacher_id,))
