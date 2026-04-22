@@ -7,6 +7,7 @@ import string
 import time 
 import re
 import json
+from datetime import datetime
 import mammoth 
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1215,7 +1216,13 @@ elif st.session_state.role == "Teacher":
             question_data = []
         if question_data:
             for q_name, q_exam, q_text, q_created in question_data:
-                with st.expander(f"{q_name} — {q_exam} ({q_created})"):
+                created_label = q_created or ""
+                if q_created:
+                    try:
+                        created_label = datetime.fromisoformat(q_created).strftime("%Y-%m-%d %H:%M")
+                    except ValueError:
+                        created_label = q_created
+                with st.expander(f"{q_name} — {q_exam} ({created_label})"):
                     st.markdown(q_text)
         else:
             st.info("Пока нет вопросов от пользователей.")
@@ -1515,6 +1522,12 @@ elif st.session_state.role == "Student":
                     st.rerun()
 
             st.markdown("### ❓ Вопрос к учителю")
+            question_name = st.text_input(
+                "Ваше имя для вопроса",
+                value=s_name,
+                key="student_question_name",
+                placeholder="Имя и Фамилия"
+            )
             student_question = st.text_area(
                 "Если что-то непонятно — задайте вопрос",
                 key="student_question_input",
@@ -1522,18 +1535,17 @@ elif st.session_state.role == "Student":
                 placeholder="Напишите ваш вопрос по заданию..."
             )
             if st.button("Отправить вопрос", type="secondary"):
-                if not s_name.strip():
-                    st.warning("Сначала укажите ваше имя, затем отправьте вопрос.")
+                if not question_name.strip():
+                    st.warning("Укажите ваше имя для вопроса.")
                 elif not student_question.strip():
                     st.warning("Напишите текст вопроса.")
                 else:
                     c = db_conn.cursor()
                     c.execute(
                         "INSERT INTO student_questions (student_name, exam_title, question) VALUES (?,?,?)",
-                        (s_name.strip(), exam['title'], student_question.strip())
+                        (question_name.strip(), exam['title'], student_question.strip())
                     )
                     db_conn.commit()
-                    st.session_state.student_question_input = ""
                     st.success("Вопрос отправлен учителю.")
 
     with col_right:
