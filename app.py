@@ -360,7 +360,7 @@ def build_teacher_profile(stats, total_submissions):
     current_level_base = (level - 1) * 100
     next_level_xp = level * 100
     level_span = next_level_xp - current_level_base
-    level_progress = (xp - current_level_base) / level_span if level_span else 1.0
+    level_progress = (xp - current_level_base) / level_span if level_span else 0.0
     level_progress = max(0.0, min(1.0, level_progress))
     return {
         "total_exams": total_exams,
