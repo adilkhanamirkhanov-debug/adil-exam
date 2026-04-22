@@ -823,8 +823,8 @@ elif st.session_state.role == "Teacher":
             )
             st.toggle("Публичный профиль", key="profile_public")
             if st.button("Сохранить профиль", type="secondary"):
-                st.session_state.teacher_status_saved = st.session_state.teacher_status_input.strip() or st.session_state.teacher_status_saved
-                st.session_state.teacher_bio_saved = st.session_state.teacher_bio_input.strip() or st.session_state.teacher_bio_saved
+                st.session_state.teacher_status_saved = st.session_state.teacher_status_input.strip()
+                st.session_state.teacher_bio_saved = st.session_state.teacher_bio_input.strip()
                 st.session_state.profile_public_saved = st.session_state.profile_public
                 st.success("Профиль обновлён.")
 
@@ -906,7 +906,7 @@ elif st.session_state.role == "Teacher":
                         "Код": exam_code,
                         "Название": exam_title,
                         "Тип": exam_type,
-                        "Время (мин)": str(exam_time) if exam_time else "∞",
+                        "Время (мин)": str(exam_time) if exam_time else "Unlimited",
                     }
                     for exam_code, exam_title, exam_type, exam_time in all_teacher_exams
                 ]
