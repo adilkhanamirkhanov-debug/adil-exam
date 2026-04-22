@@ -735,6 +735,7 @@ elif st.session_state.role == "Teacher":
             st.query_params.clear()
             st.rerun()
 
+    # Намеренно в основной области (не в sidebar), чтобы отображалось как отдельное окно.
     with st.expander("🪟 Инструкция по платформе", expanded=False):
         st.markdown(PLATFORM_INSTRUCTION_MD)
 
@@ -1539,7 +1540,7 @@ elif st.session_state.role == "Student":
                     st.warning("Укажите ваше имя для вопроса.")
                 elif not student_question.strip():
                     st.warning("Напишите текст вопроса.")
-                elif s_name.strip() and question_name.strip() != s_name.strip():
+                elif question_name.strip() and s_name.strip() and question_name.strip() != s_name.strip():
                     st.warning("Имя в вопросе должно совпадать с именем в вашем ответе.")
                 else:
                     c = db_conn.cursor()
