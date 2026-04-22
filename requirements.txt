@@ -1,7 +1,5 @@
-flask
+streamlit
 pandas
 openai
 mammoth
 werkzeug
-python-dotenv
-gunicorn
