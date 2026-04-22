@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — fair-exam{% endblock %}
+{% block content %}
+<h1>📊 Профиль и статистика</h1>
+<p class="text-muted mb-3">Учитель: <b style="color:#fbc2eb;">{{ session.teacher_username }}</b></p>
+
+<div class="grid-4 mb-4">
+  <div class="stat-tile">
+    <div class="stat-value">{{ stats.get('Quick', 0) }}</div>
+    <div class="stat-label">⚡ Quick задач</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-value">{{ stats.get('MYP', 0) }}</div>
+    <div class="stat-label">🎓 MYP задач</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-value">{{ stats.get('Custom', 0) }}</div>
+    <div class="stat-label">🛠 Custom задач</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-value">{{ total_submissions }}</div>
+    <div class="stat-label">📨 Сданных работ</div>
+  </div>
+</div>
+
+<div class="alert alert-info">Здесь отображаются только ваши экзамены и связанные результаты.</div>
+
+<div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:12px;">
+  <h2>Мои экзамены</h2>
+  <a class="btn btn-sm" href="{{ url_for('teacher_create') }}">+ Создать задачу</a>
+</div>
+
+{% if exams %}
+<div class="card">
+  <table>
+    <thead><tr><th>Код</th><th>Название</th><th>Тип</th><th>Время (мин)</th></tr></thead>
+    <tbody>
+      {% for code, title, etype, time_limit in exams %}
+      <tr>
+        <td><code style="color:#a18cd1;">{{ code }}</code></td>
+        <td>{{ title }}</td>
+        <td>
+          {% if etype == 'MYP' %}<span style="color:#fbc2eb;">🎓 MYP</span>
+          {% elif etype == 'Quick' %}<span style="color:#7be3ff;">⚡ Quick</span>
+          {% else %}<span style="color:#ffe066;">🛠 Custom</span>{% endif %}
+        </td>
+        <td>{{ time_limit if time_limit else '∞' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">Пока нет опубликованных задач. <a href="{{ url_for('teacher_create') }}" style="color:#a18cd1;">Создайте первую →</a></div>
+{% endif %}
+{% endblock %}

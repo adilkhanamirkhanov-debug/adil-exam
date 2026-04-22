@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}fair-exam — Главная{% endblock %}
+
+{% block content %}
+<!-- Brain network canvas -->
+<canvas id="brain-canvas"></canvas>
+
+<!-- Hero -->
+<div class="hero-section">
+  <p class="logo-text">fair-exam</p>
+  <p class="hero-subtitle"><b>Интеллектуальная платформа для экзаменов и оценки ответов с AI</b></p>
+  <p class="hero-desc">Учителя создают задачи в едином конструкторе, а ученики входят только по коду доступа.</p>
+</div>
+
+<!-- Mode cards -->
+<div class="mode-cards">
+  <div class="mode-card">
+    <h3>👨‍🎓 Student mode</h3>
+    <ul>
+      <li>Введите код доступа</li>
+      <li>Отправьте ответ и получите AI-оценку</li>
+    </ul>
+  </div>
+  <div class="mode-card">
+    <h3>👩‍🏫 Teacher mode</h3>
+    <ul>
+      <li>Зарегистрируйтесь и войдите в кабинет</li>
+      <li>Создавайте задачи в едином конструкторе</li>
+      <li>Отслеживайте статистику и результаты</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Student access code -->
+<div style="max-width:380px;margin:0 auto 32px;position:relative;z-index:1;">
+  <p class="text-center text-muted mb-2">Введите код доступа от учителя</p>
+  <form method="POST" action="{{ url_for('start_exam') }}">
+    <div class="form-group">
+      <input type="text" name="access_code" placeholder="Например: MYP-1A2B3" autocomplete="off" required />
+    </div>
+    <button type="submit" class="btn btn-full">Начать экзамен →</button>
+  </form>
+</div>
+
+<!-- Auth panel -->
+<div class="auth-panel mb-4">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('login', this)">🔐 Вход</button>
+    <button class="tab-btn" onclick="switchTab('register', this)">📝 Регистрация</button>
+  </div>
+
+  <!-- Login -->
+  <div id="tab-login" class="tab-content active card">
+    <h3 style="margin-bottom:16px;">Вход для учителей</h3>
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-group">
+        <label>Username или Email</label>
+        <input type="text" name="username" placeholder="your@email.com" required />
+      </div>
+      <div class="form-group">
+        <label>Пароль</label>
+        <input type="password" name="password" placeholder="••••••" required />
+      </div>
+      <button type="submit" class="btn btn-full">Войти</button>
+    </form>
+  </div>
+
+  <!-- Register -->
+  <div id="tab-register" class="tab-content card">
+    <h3 style="margin-bottom:16px;">Регистрация</h3>
+    <form method="POST" action="{{ url_for('register') }}">
+      <div class="form-group">
+        <label>Username (мин. 3 символа)</label>
+        <input type="text" name="reg_username" placeholder="teacher_name" required />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="reg_email" placeholder="teacher@school.kz" required />
+      </div>
+      <div class="form-group">
+        <label>Пароль (мин. 6 символов)</label>
+        <input type="password" name="reg_password" placeholder="••••••" required />
+      </div>
+      <div class="form-group">
+        <label>Код администратора <span class="text-muted">(необязательно)</span></label>
+        <input type="password" name="admin_code" placeholder="Оставьте пустым если не нужно" />
+        <span class="text-muted mt-1" style="display:block;">Введите спецкод, чтобы получить права администратора.</span>
+      </div>
+      <button type="submit" class="btn btn-full">Создать аккаунт</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Brain network animation
+(function(){
+  const canvas = document.getElementById('brain-canvas');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
+
+  const NODE_COUNT = 55;
+  const MAX_DIST = 160;
+  const nodes = [];
+
+  for (let i = 0; i < NODE_COUNT; i++) {
+    nodes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45,
+      r: Math.random() * 3 + 2,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < MAX_DIST) {
+          const alpha = (1 - dist / MAX_DIST) * 0.35;
+          const grad = ctx.createLinearGradient(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+          grad.addColorStop(0, `rgba(161,140,209,${alpha})`);
+          grad.addColorStop(1, `rgba(123,227,255,${alpha})`);
+          ctx.beginPath();
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1;
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    for (const n of nodes) {
+      n.pulse += 0.025;
+      const glow = 0.55 + 0.45 * Math.sin(n.pulse);
+      const radius = n.r + 1.5 * Math.sin(n.pulse);
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, radius * 3.5);
+      grad.addColorStop(0, `rgba(251,194,235,${glow * 0.95})`);
+      grad.addColorStop(0.5, `rgba(161,140,209,${glow * 0.5})`);
+      grad.addColorStop(1, `rgba(161,140,209,0)`);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius * 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(251,194,235,${glow})`;
+      ctx.fill();
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > W) n.vx *= -1;
+      if (n.y < 0 || n.y > H) n.vy *= -1;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+{% endblock %}

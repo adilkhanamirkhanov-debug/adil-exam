@@ -6,67 +6,11 @@ import random
 import string
 import time 
 import re
-import json
 import mammoth 
 import streamlit.components.v1 as components
 from werkzeug.security import generate_password_hash, check_password_hash
 
 EMAIL_VALIDATION_PATTERN = r"^(?![.])(?!.*[.]{2})[A-Za-z0-9._%+-]+(?<![.])@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-
-MYP_SUBJECT_CRITERIA = {
-    "Не указано": {
-        "A": "Критерий A", "B": "Критерий B",
-        "C": "Критерий C", "D": "Критерий D",
-    },
-    "Науки (Sciences)": {
-        "A": "Знание и понимание",
-        "B": "Исследование и проектирование",
-        "C": "Обработка и оценка",
-        "D": "Осмысление влияния науки",
-    },
-    "Математика (Mathematics)": {
-        "A": "Знание и понимание",
-        "B": "Исследование закономерностей",
-        "C": "Коммуникация",
-        "D": "Применение математики",
-    },
-    "Язык и литература": {
-        "A": "Анализ",
-        "B": "Организация",
-        "C": "Создание текста",
-        "D": "Использование языка",
-    },
-    "Приобретение языка": {
-        "A": "Аудирование",
-        "B": "Чтение",
-        "C": "Говорение",
-        "D": "Письмо",
-    },
-    "Индивидуумы и общества": {
-        "A": "Знание и понимание",
-        "B": "Исследование",
-        "C": "Коммуникация",
-        "D": "Критическое мышление",
-    },
-    "Дизайн (Design)": {
-        "A": "Исследование и анализ",
-        "B": "Разработка идей",
-        "C": "Создание решения",
-        "D": "Оценка",
-    },
-    "Искусство (Arts)": {
-        "A": "Знание и понимание",
-        "B": "Развитие навыков",
-        "C": "Творческое мышление",
-        "D": "Отклик",
-    },
-    "Физкультура и здоровье (PHE)": {
-        "A": "Знание и понимание",
-        "B": "Планирование для достижения результата",
-        "C": "Применение и выполнение",
-        "D": "Рефлексия и улучшение",
-    },
-}
 
 # --- 1. CONFIG ---
 st.set_page_config(
@@ -97,10 +41,6 @@ if "teacher_username" not in st.session_state: st.session_state.teacher_username
 if "task_step" not in st.session_state: st.session_state.task_step = 1
 if "task_type_sel" not in st.session_state: st.session_state.task_type_sel = None
 if "ai_criteria_result" not in st.session_state: st.session_state.ai_criteria_result = ""
-if "myp_tasks" not in st.session_state: st.session_state.myp_tasks = [{"text": "", "active": True, "id": 0}]
-if "myp_task_counter" not in st.session_state: st.session_state.myp_task_counter = 1
-if "myp_success_criteria" not in st.session_state: st.session_state.myp_success_criteria = {}
-if "wizard_criteria" not in st.session_state: st.session_state.wizard_criteria = ""
 
 def update_draft():
     # Функция сохраняет текст при каждом изменении (когда кликают вне поля)
@@ -293,42 +233,6 @@ client = OpenAI(
 )
 
 def grade_essay(title, desc, criteria, strictness, essay, exam_type):
-    # Parse JSON for structured MYP exams
-    if exam_type == "MYP":
-        try:
-            desc_data = json.loads(desc)
-            if isinstance(desc_data, dict):
-                parts = []
-                if desc_data.get("conditions"):
-                    parts.append(f"Условие: {desc_data['conditions']}")
-                if desc_data.get("tasks"):
-                    tasks_text = "\n".join(
-                        f"{i+1}. {t['text']}" for i, t in enumerate(desc_data["tasks"])
-                    )
-                    parts.append(f"Задания:\n{tasks_text}")
-                if desc_data.get("teacher_notes"):
-                    parts.append(f"Замечания учителя: {desc_data['teacher_notes']}")
-                if parts:
-                    desc = "\n\n".join(parts)
-        except (json.JSONDecodeError, TypeError):
-            pass
-        try:
-            crit_data = json.loads(criteria)
-            if isinstance(crit_data, dict):
-                lines = [
-                    f"Предмет: {crit_data.get('subject', '')}",
-                    f"Максимальный балл: {crit_data.get('max_score', '')}",
-                ]
-                for letter in crit_data.get("selected", []):
-                    crit_name = crit_data.get("criteria_names", {}).get(letter, f"Критерий {letter}")
-                    success = crit_data.get("success", {}).get(letter, "")
-                    lines.append(f"\nКритерий {letter}: {crit_name}")
-                    if success:
-                        lines.append(f"Критерии успеха:\n{success}")
-                criteria = "\n".join(lines)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
     strictness_guide = "Be balanced and fair."
     if strictness > 7:
         strictness_guide = "Grade VERY strictly. Deduct points for any minor logical, grammatical, or structural mistakes. Be a tough grader."
@@ -703,295 +607,48 @@ elif st.session_state.role == "Teacher":
                 if st.button(f"Выбрать {val}", key=f"sel_{val}", type="secondary"):
                     st.session_state.task_type_sel = val
                     st.session_state.ai_criteria_result = ""
-                    st.session_state["wizard_criteria"] = ""
-                    st.session_state.myp_tasks = [{"text": "", "active": True, "id": 0}]
-                    st.session_state.myp_task_counter = 1
-                    st.session_state.myp_success_criteria = {}
-                    for ltr in ["A", "B", "C", "D"]:
-                        st.session_state.pop(f"sc_{ltr}", None)
-                        st.session_state.pop(f"myp_crit_{ltr}", None)
                     st.rerun()
 
         task_variant = st.session_state.task_type_sel
         if task_variant is None:
             st.info("👆 Нажмите на кнопку «Выбрать», чтобы начать создание задачи.")
-        elif task_variant == "MYP":
-            # ════════════════════════════════════════════════════════════
-            # MYP WIZARD — 9 шагов
-            # ════════════════════════════════════════════════════════════
-            st.markdown("---")
-
-            # ── Шаг 1: Код + Название ────────────────────────────────────
-            st.markdown("#### 1️⃣ Название задачи")
-            col_c1, col_c2 = st.columns([3, 1])
-            with col_c1:
-                nc = st.text_input("🔑 Код доступа", value=st.session_state.gen_code, key="myp_code")
-            with col_c2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🎲 Сгенерировать код", key="myp_gen_code", type="secondary"):
-                    st.session_state.gen_code = generate_random_code("MYP")
-                    st.rerun()
-            nt = st.text_input("📌 Название задачи", key="myp_title_input")
-
-            # ── Шаг 2: Предмет ───────────────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 2️⃣ Выбор предмета")
-            myp_subject = st.selectbox(
-                "🏫 Предмет MYP",
-                list(MYP_SUBJECT_CRITERIA.keys()),
-                key="myp_subject_sel"
-            )
-            subject_criteria = MYP_SUBJECT_CRITERIA.get(myp_subject, MYP_SUBJECT_CRITERIA["Не указано"])
-
-            # ── Шаг 3: Выбор критериев ───────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 3️⃣ Выбор критериев оценивания")
-            st.caption("Выберите один или несколько критериев:")
-            crit_cols = st.columns(4)
-            active_criteria = []
-            for col_w, (letter, name) in zip(crit_cols, subject_criteria.items()):
-                with col_w:
-                    is_sel = st.checkbox(
-                        f"**{letter}** — {name}",
-                        value=st.session_state.get(f"myp_crit_{letter}", False),
-                        key=f"myp_crit_{letter}"
-                    )
-                    if is_sel:
-                        active_criteria.append(letter)
-
-            # ── Шаг 4: Условие задачи и список заданий ───────────────────
-            st.markdown("---")
-            st.markdown("#### 4️⃣ Условие задачи и список заданий")
-            task_file = st.file_uploader(
-                "📎 Файл с условием (.docx / .txt)",
-                type=["docx", "txt"],
-                key="myp_task_file"
-            )
-            conditions_text = st.text_area(
-                "📝 Текст условия задачи",
-                height=150,
-                key="myp_conditions",
-                placeholder="Опишите контекст, условие или вводную информацию..."
-            )
-
-            st.markdown("**📋 Список заданий:**")
-            st.caption("Отметьте галочкой задания, которые войдут в экзамен:")
-
-            # Initialize task list
-            if not st.session_state.myp_tasks:
-                st.session_state.myp_tasks = [{"text": "", "active": True, "id": 0}]
-                st.session_state.myp_task_counter = 1
-
-            to_delete = None
-            for i, task in enumerate(st.session_state.myp_tasks):
-                task_id = task["id"]
-                # Init session state keys if not yet present
-                if f"task_text_{task_id}" not in st.session_state:
-                    st.session_state[f"task_text_{task_id}"] = task["text"]
-                if f"task_active_{task_id}" not in st.session_state:
-                    st.session_state[f"task_active_{task_id}"] = task["active"]
-                tc1, tc2, tc3 = st.columns([0.5, 5.5, 0.5])
-                with tc1:
-                    st.checkbox("", key=f"task_active_{task_id}", label_visibility="collapsed")
-                with tc2:
-                    st.text_input(
-                        "", key=f"task_text_{task_id}",
-                        placeholder=f"Задание {i+1}...",
-                        label_visibility="collapsed"
-                    )
-                with tc3:
-                    if st.button("🗑", key=f"task_del_{task_id}", type="secondary"):
-                        to_delete = i
-            if to_delete is not None:
-                st.session_state.myp_tasks.pop(to_delete)
-                st.rerun()
-
-            if st.button("➕ Добавить задание", type="secondary", key="myp_add_task"):
-                new_id = st.session_state.myp_task_counter
-                st.session_state.myp_tasks.append({"text": "", "active": True, "id": new_id})
-                st.session_state[f"task_text_{new_id}"] = ""
-                st.session_state[f"task_active_{new_id}"] = True
-                st.session_state.myp_task_counter += 1
-                st.rerun()
-
-            # ── Шаг 5: Критерии успеха для каждого критерия ─────────────
-            st.markdown("---")
-            st.markdown("#### 5️⃣ Критерии успеха для каждого критерия")
-            if not active_criteria:
-                st.warning("⚠️ Сначала выберите критерии в шаге 3.")
-            else:
-                for letter in active_criteria:
-                    crit_name = subject_criteria.get(letter, f"Критерий {letter}")
-                    st.markdown(f"**Критерий {letter}: {crit_name}**")
-                    sc_col1, sc_col2 = st.columns([5, 1])
-                    with sc_col1:
-                        if f"sc_{letter}" not in st.session_state:
-                            st.session_state[f"sc_{letter}"] = st.session_state.myp_success_criteria.get(letter, "")
-                        st.text_area(
-                            f"Критерии успеха {letter}",
-                            key=f"sc_{letter}",
-                            height=120,
-                            placeholder=f"Что студент должен продемонстрировать для критерия {letter}...",
-                            label_visibility="collapsed"
-                        )
-                    with sc_col2:
-                        st.markdown("<br><br>", unsafe_allow_html=True)
-                        if st.button(
-                            "🤖 AI",
-                            key=f"ai_sc_{letter}",
-                            type="secondary",
-                            help=f"Сгенерировать критерии успеха для {letter} с помощью AI"
-                        ):
-                            with st.spinner(f"AI генерирует критерии {letter}..."):
-                                ai_sc = generate_criteria_with_ai(
-                                    nt.strip() or "Без названия",
-                                    conditions_text.strip() or "Описание не указано",
-                                    "MYP",
-                                    subject=f"{myp_subject} — Критерий {letter}: {crit_name}"
-                                )
-                            st.session_state[f"sc_{letter}"] = ai_sc
-                            st.rerun()
-
-            # ── Шаг 6: Максимальный балл ─────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 6️⃣ Максимальный балл")
-            auto_max = len(active_criteria) * 8
-            if auto_max > 0:
-                st.caption(f"Авто-расчёт: {len(active_criteria)} критери(я/ев) × 8 = {auto_max} баллов")
-            myp_max_score = st.number_input(
-                "Максимальный балл",
-                min_value=1, max_value=200,
-                value=max(auto_max, 8),
-                key="myp_max_score_input"
-            )
-
-            # ── Шаг 7: Время (tech style) ────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 7️⃣ Время для экзамена")
-            st.markdown(
-                """<div style="background:rgba(123,227,255,0.06); border:1px solid rgba(123,227,255,0.35);
-                border-radius:12px; padding:14px 18px; margin-bottom:10px;">
-                <span style="color:#7be3ff; font-size:12px; font-weight:800; letter-spacing:3px;">
-                ⏱ ТАЙМЕР ЭКЗАМЕНА</span></div>""",
-                unsafe_allow_html=True
-            )
-            time_preset_cols = st.columns(6)
-            time_presets_v = [0, 20, 30, 45, 60, 90]
-            time_labels_v = ["∞ Без лим.", "20 мин", "30 мин", "45 мин", "60 мин", "90 мин"]
-            for tp_col, tp_val, tp_lab in zip(time_preset_cols, time_presets_v, time_labels_v):
-                with tp_col:
-                    if st.button(tp_lab, key=f"myp_tp_{tp_val}", type="secondary"):
-                        st.session_state["myp_time_val"] = tp_val
-            t_limit = st.number_input(
-                "Минуты (0 = без ограничений)",
-                min_value=0, max_value=300,
-                value=st.session_state.get("myp_time_val", 45),
-                key="myp_time_input"
-            )
-
-            # ── Шаг 8: Строгость ИИ ──────────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 8️⃣ Строгость ИИ")
-            diff_cols_m = st.columns(3)
-            diff_map_m = {"🟢 Мягко": 3, "🟡 Средне": 5, "🔴 Строго": 8}
-            for d_col, (d_lab, d_val) in zip(diff_cols_m, diff_map_m.items()):
-                with d_col:
-                    if st.button(d_lab, key=f"myp_diff_{d_val}", type="secondary"):
-                        st.session_state["myp_strict_val"] = d_val
-            strictness = st.slider(
-                "Строгость оценивания (1-10)",
-                min_value=1, max_value=10,
-                value=st.session_state.get("myp_strict_val", 5),
-                key="myp_strictness_slider"
-            )
-
-            # ── Шаг 9: Замечания учителя ─────────────────────────────────
-            st.markdown("---")
-            st.markdown("#### 9️⃣ Замечания учителя")
-            teacher_notes = st.text_area(
-                "Дополнительные инструкции для студентов",
-                height=100,
-                key="myp_teacher_notes",
-                placeholder="Например: Используйте полные предложения. Минимальный объём — 500 слов..."
-            )
-
-            # ── Публикация ────────────────────────────────────────────────
-            st.markdown("---")
-            if st.button("🚀 Опубликовать MYP задачу", type="primary"):
-                if not nt.strip():
-                    st.warning("Укажите название задачи.")
-                elif not nc.strip():
-                    st.warning("Укажите код доступа.")
-                elif not active_criteria:
-                    st.warning("Выберите хотя бы один критерий оценивания (шаг 3).")
-                else:
-                    conditions_final = conditions_text.strip()
-                    if task_file:
-                        file_content = read_file(task_file)
-                        if file_content:
-                            conditions_final = (conditions_final + "\n\n" + file_content).strip()
-
-                    active_tasks = []
-                    for task in st.session_state.myp_tasks:
-                        tid = task["id"]
-                        txt = st.session_state.get(f"task_text_{tid}", "").strip()
-                        act = st.session_state.get(f"task_active_{tid}", True)
-                        if txt and act:
-                            active_tasks.append({"text": txt})
-
-                    myp_desc = json.dumps({
-                        "conditions": conditions_final,
-                        "tasks": active_tasks,
-                        "teacher_notes": teacher_notes,
-                    }, ensure_ascii=False)
-
-                    myp_crit = json.dumps({
-                        "subject": myp_subject,
-                        "selected": active_criteria,
-                        "criteria_names": {k: subject_criteria[k] for k in active_criteria},
-                        "success": {k: st.session_state.get(f"sc_{k}", "") for k in active_criteria},
-                        "max_score": int(myp_max_score),
-                    }, ensure_ascii=False)
-
-                    saved, save_message = save_teacher_exam(
-                        nc, "MYP", nt, myp_desc, myp_crit,
-                        float(strictness), t_limit, teacher_id
-                    )
-                    if saved:
-                        st.success(f"✅ MYP задача опубликована! Код доступа: **{nc}**")
-                        st.session_state.task_type_sel = None
-                        st.session_state.ai_criteria_result = ""
-                        st.session_state.gen_code = ""
-                        st.session_state.myp_tasks = [{"text": "", "active": True, "id": 0}]
-                        st.session_state.myp_task_counter = 1
-                        st.session_state.myp_success_criteria = {}
-                        for letter in ["A", "B", "C", "D"]:
-                            st.session_state.pop(f"sc_{letter}", None)
-                            st.session_state.pop(f"myp_crit_{letter}", None)
-                    else:
-                        st.error(save_message)
-
         else:
-            # ── Quick / Custom flow ───────────────────────────────────────
             st.markdown(f"---\n### Шаг 2 — Основная информация  *(тип: {task_variant})*")
 
+            # ── Code generation row ──────────────────────────────────────────
             col_c1, col_c2 = st.columns([3, 1])
             with col_c1:
                 nc = st.text_input("🔑 Код доступа", value=st.session_state.gen_code, key="wizard_code")
             with col_c2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                prefix_map = {"Quick": "FAST", "Custom": "CSTM"}
+                prefix_map = {"Quick": "FAST", "MYP": "MYP", "Custom": "CSTM"}
                 if st.button("🎲 Сгенерировать код", type="secondary"):
                     st.session_state.gen_code = generate_random_code(prefix_map[task_variant])
                     st.rerun()
 
             nt = st.text_input("📌 Название задачи", key="wizard_title")
 
-            st.markdown("### Шаг 3 — Условие задачи")
-            c_desc = st.text_area("📝 Текст задачи (поддерживает HTML)", height=130, key="wizard_desc")
-            c_file = st.file_uploader("📎 Загрузить файл с условием (.docx / .txt)", type=["docx", "txt"])
-            myp_subject = "Не указано"
-            task_questions = ""
+            # ── Type-specific fields ─────────────────────────────────────────
+            if task_variant == "MYP":
+                st.markdown("### Шаг 3 — Предмет и условие")
+                myp_subject = st.selectbox("🏫 Предмет MYP", [
+                    "Не указано", "Науки (Sciences)", "Математика (Mathematics)",
+                    "Язык и литература", "Приобретение языка", "Индивидуумы и общества",
+                    "Дизайн (Design)", "Искусство (Arts)", "Физкультура и здоровье (PHE)"
+                ])
+                task_file = st.file_uploader("📎 Файл с условием (.docx / .txt)", type=["docx", "txt"])
+                task_questions = st.text_area("❓ Дополнительные вопросы (каждый с новой строки)", height=130)
+                crit_file = st.file_uploader("📎 Файл с рубрикой (необязательно)", type=["docx", "txt"])
+                c_desc = ""
+                c_file = None
+            else:
+                st.markdown("### Шаг 3 — Условие задачи")
+                c_desc = st.text_area("📝 Текст задачи (поддерживает HTML)", height=130, key="wizard_desc")
+                c_file = st.file_uploader("📎 Загрузить файл с условием (.docx / .txt)", type=["docx", "txt"])
+                myp_subject = "Не указано"
+                task_questions = ""
+                task_file = None
+                crit_file = None
 
             # ── Criteria section with AI assist ─────────────────────────────
             st.markdown("### Шаг 4 — Критерии оценивания")
@@ -1003,21 +660,17 @@ elif st.session_state.role == "Teacher":
                     task_title_for_ai = nt.strip() or "Без названия"
                     task_desc_for_ai = (c_desc or task_questions or "Описание не указано").strip()
                     with st.spinner("AI генерирует критерии..."):
-                        result = generate_criteria_with_ai(
+                        st.session_state.ai_criteria_result = generate_criteria_with_ai(
                             task_title_for_ai, task_desc_for_ai, task_variant,
                             subject=myp_subject
                         )
-                        st.session_state.ai_criteria_result = result
-                        st.session_state["wizard_criteria"] = result
                     st.rerun()
             with ai_col2:
                 if st.button("✨ Улучшить критерии (AI)", type="secondary"):
-                    existing = st.session_state.get("wizard_criteria", st.session_state.ai_criteria_result).strip()
+                    existing = st.session_state.ai_criteria_result.strip()
                     if existing:
                         with st.spinner("AI улучшает критерии..."):
-                            result = improve_criteria_with_ai(existing, task_variant)
-                            st.session_state.ai_criteria_result = result
-                            st.session_state["wizard_criteria"] = result
+                            st.session_state.ai_criteria_result = improve_criteria_with_ai(existing, task_variant)
                         st.rerun()
                     else:
                         st.warning("Сначала введите или сгенерируйте критерии.")
@@ -1028,9 +681,7 @@ elif st.session_state.role == "Teacher":
                     "Custom": "### Рубрика оценивания (10 баллов за каждый критерий)\n- **Понимание темы (10 б)**\n- **Аргументация (10 б)**\n- **Структура (10 б)**\n- **Язык и оформление (10 б)**\n- **Оригинальность (10 б)**",
                 }
                 if st.button("📋 Шаблон рубрики", type="secondary"):
-                    tmpl = rubric_options.get(task_variant, "")
-                    st.session_state.ai_criteria_result = tmpl
-                    st.session_state["wizard_criteria"] = tmpl
+                    st.session_state.ai_criteria_result = rubric_options.get(task_variant, "")
                     st.rerun()
 
             if st.session_state.ai_criteria_result:
@@ -1083,10 +734,17 @@ elif st.session_state.role == "Teacher":
                 elif not nc.strip():
                     st.warning("Укажите код доступа.")
                 else:
-                    file_desc = read_file(c_file)
-                    desc_parts = [p for p in [c_desc.strip(), file_desc.strip()] if p]
-                    final_desc = "<br>".join(desc_parts) or "Описание не указано."
-                    final_crit = crit_manual.strip() or "Оценить по содержательности, структуре и аргументации."
+                    if task_variant == "MYP":
+                        desc_content = read_file(task_file)
+                        questions_html = f"<br><h3>Вопросы:</h3><p>{task_questions.replace(chr(10), '<br>')}</p>" if task_questions.strip() else ""
+                        final_desc = desc_content + questions_html or "Смотрите вопросы."
+                        subject_prefix = f"[ПРЕДМЕТ MYP: {myp_subject}]\n\n" if "Не указано" not in myp_subject else ""
+                        final_crit = subject_prefix + (crit_manual.strip() or read_file(crit_file)) or "Оценивать по стандартам MYP."
+                    else:
+                        file_desc = read_file(c_file)
+                        desc_parts = [p for p in [c_desc.strip(), file_desc.strip()] if p]
+                        final_desc = "<br>".join(desc_parts) or "Описание не указано."
+                        final_crit = crit_manual.strip() or "Оценить по содержательности, структуре и аргументации."
 
                     saved, save_message = save_teacher_exam(nc, task_variant, nt, final_desc, final_crit, float(strictness), t_limit, teacher_id)
                     if saved:
@@ -1249,111 +907,73 @@ elif st.session_state.role == "Student":
         if remaining_seconds <= 0:
             is_time_up = True
 
-    # Парсим JSON для MYP
-    myp_desc_data = None
-    myp_crit_data = None
-    if exam["type"] == "MYP":
-        try:
-            myp_desc_data = json.loads(exam["desc"])
-            if not isinstance(myp_desc_data, dict):
-                myp_desc_data = None
-        except (json.JSONDecodeError, TypeError):
-            pass
-        try:
-            myp_crit_data = json.loads(exam["criteria"])
-            if not isinstance(myp_crit_data, dict):
-                myp_crit_data = None
-        except (json.JSONDecodeError, TypeError):
-            pass
-
     # Заголовок
     mode_label = "Режим IB MYP" if exam["type"] == "MYP" else ("Кастомный режим" if exam["type"] == "Custom" else "Стандартный режим")
     st.markdown(f'<p style="color: #a18cd1; font-weight: bold; margin-bottom: 0;">{mode_label}</p>', unsafe_allow_html=True)
     st.markdown(f'<p class="logo-text" style="font-size: 32px !important; margin-top: 0;">{exam["title"]}</p>', unsafe_allow_html=True)
 
-    # Прокторинг — только во время активного экзамена
-    if not st.session_state.exam_submitted:
-        components.html(
-            """
-            <script>
-                const doc = window.parent.document;
-                if (!doc.getElementById("proctoring-style")) {
-                    const style = doc.createElement("style");
-                    style.id = "proctoring-style";
-                    style.textContent = "#proctoring-alert{position:fixed;right:18px;bottom:18px;z-index:999999;padding:10px 14px;border-radius:10px;background:rgba(255,75,75,.92);color:#fff;font-weight:700;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4);}#proctoring-indicator{position:fixed;right:18px;top:18px;z-index:999999;padding:8px 12px;border-radius:999px;background:rgba(20,20,38,.9);color:#7be3ff;border:1px solid rgba(123,227,255,.65);font-size:12px;font-weight:700;}";
-                    doc.head.appendChild(style);
-                }
-                if (!doc.getElementById("proctoring-alert")) {
-                    const alertBox = doc.createElement("div");
-                    alertBox.id = "proctoring-alert";
-                    doc.body.appendChild(alertBox);
-                }
-                if (!doc.getElementById("proctoring-indicator")) {
-                    const indicator = doc.createElement("div");
-                    indicator.id = "proctoring-indicator";
-                    indicator.innerText = "PROCTORING ACTIVE";
-                    doc.body.appendChild(indicator);
-                }
-                window.proctoringViolations = window.proctoringViolations || 0;
-                function showProctoringWarning(message){
-                    const alertBox = doc.getElementById("proctoring-alert");
-                    window.proctoringViolations += 1;
-                    alertBox.innerText = `Прокторинг: ${message}. Нарушений: ${window.proctoringViolations}`;
-                    alertBox.style.display = "block";
-                    clearTimeout(window.proctoringTimer);
-                    window.proctoringTimer = setTimeout(()=>{ alertBox.style.display = "none"; }, 3000);
-                }
-                if (!window.proctoringEventsAttached) {
-                    window.proctoringEventsAttached = true;
-                    doc.addEventListener("visibilitychange", () => {
-                        if (doc.hidden) showProctoringWarning("обнаружено переключение вкладки");
-                    });
-                    window.parent.addEventListener("blur", () => {
-                        showProctoringWarning("обнаружен выход из окна экзамена");
-                    });
-                    doc.addEventListener("copy", (e) => {
-                        e.preventDefault();
-                        showProctoringWarning("копирование заблокировано");
-                    });
-                    doc.addEventListener("paste", (e) => {
-                        e.preventDefault();
-                        showProctoringWarning("вставка заблокирована");
-                    });
-                    doc.addEventListener("contextmenu", (e) => {
-                        e.preventDefault();
-                        showProctoringWarning("контекстное меню заблокировано");
-                    });
-                }
-            </script>
-            """,
-            height=0
-        )
-    else:
-        # Скрываем индикатор прокторинга после сдачи
-        components.html(
-            """<script>
-            const ind = window.parent.document.getElementById("proctoring-indicator");
-            if (ind) ind.style.display = "none";
-            </script>""",
-            height=0
-        )
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            if (!doc.getElementById("proctoring-style")) {
+                const style = doc.createElement("style");
+                style.id = "proctoring-style";
+                style.textContent = "#proctoring-alert{position:fixed;right:18px;bottom:18px;z-index:999999;padding:10px 14px;border-radius:10px;background:rgba(255,75,75,.92);color:#fff;font-weight:700;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4);}#proctoring-indicator{position:fixed;right:18px;top:18px;z-index:999999;padding:8px 12px;border-radius:999px;background:rgba(20,20,38,.9);color:#7be3ff;border:1px solid rgba(123,227,255,.65);font-size:12px;font-weight:700;}";
+                doc.head.appendChild(style);
+            }
+            if (!doc.getElementById("proctoring-alert")) {
+                const alertBox = doc.createElement("div");
+                alertBox.id = "proctoring-alert";
+                doc.body.appendChild(alertBox);
+            }
+            if (!doc.getElementById("proctoring-indicator")) {
+                const indicator = doc.createElement("div");
+                indicator.id = "proctoring-indicator";
+                indicator.innerText = "PROCTORING ACTIVE";
+                doc.body.appendChild(indicator);
+            }
+            window.proctoringViolations = window.proctoringViolations || 0;
+            function showProctoringWarning(message){
+                const alertBox = doc.getElementById("proctoring-alert");
+                window.proctoringViolations += 1;
+                alertBox.innerText = `Прокторинг: ${message}. Нарушений: ${window.proctoringViolations}`;
+                alertBox.style.display = "block";
+                clearTimeout(window.proctoringTimer);
+                window.proctoringTimer = setTimeout(()=>{ alertBox.style.display = "none"; }, 3000);
+            }
+            if (!window.proctoringEventsAttached) {
+                window.proctoringEventsAttached = true;
+                doc.addEventListener("visibilitychange", () => {
+                    if (doc.hidden) showProctoringWarning("обнаружено переключение вкладки");
+                });
+                window.parent.addEventListener("blur", () => {
+                    showProctoringWarning("обнаружен выход из окна экзамена");
+                });
+                doc.addEventListener("copy", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("копирование заблокировано");
+                });
+                doc.addEventListener("paste", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("вставка заблокирована");
+                });
+                doc.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    showProctoringWarning("контекстное меню заблокировано");
+                });
+            }
+        </script>
+        """,
+        height=0
+    )
     
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
         st.markdown("### Условие задачи")
         with st.container(height=400):
-            if myp_desc_data:
-                if myp_desc_data.get("conditions"):
-                    st.markdown(myp_desc_data["conditions"], unsafe_allow_html=True)
-                if myp_desc_data.get("tasks"):
-                    st.markdown("**Задания:**")
-                    for i, task in enumerate(myp_desc_data["tasks"], 1):
-                        st.markdown(f"{i}. {task['text']}")
-                if myp_desc_data.get("teacher_notes"):
-                    st.info(f"📌 Замечания учителя: {myp_desc_data['teacher_notes']}")
-            else:
-                st.markdown(exam["desc"], unsafe_allow_html=True)
+            st.markdown(exam["desc"], unsafe_allow_html=True)
         
         if st.session_state.exam_submitted:
             st.success("Вы успешно сдали эту работу! Повторная отправка невозможна.")
@@ -1361,15 +981,16 @@ elif st.session_state.role == "Student":
             if st.button("Выйти на главную", type="secondary"):
                 st.session_state.role = None
                 st.session_state.exam_submitted = False
-                st.session_state.student_draft = ""
+                st.session_state.student_draft = "" # Очищаем черновик
                 st.session_state.exam_end_time = None
-                st.query_params.clear()
+                st.query_params.clear() # Очищаем URL
                 st.rerun()
                 
         else:
             st.markdown("### Ваш ответ")
             s_name = st.text_input("Ваше полное имя (Имя и Фамилия)")
             
+            # Поле для ответа с привязкой к черновику 
             s_essay = st.text_area(
                 "Напишите ваш ответ здесь... (сохраняется автоматически)", 
                 value=st.session_state.student_draft,
@@ -1403,39 +1024,28 @@ elif st.session_state.role == "Student":
                     else: 
                         st.warning("Пожалуйста, заполните имя и напишите ответ.")
             with col_bt2:
+                # Очистка при ручном выходе
                 if st.button("Выйти на главную", type="secondary"):
                     st.session_state.role = None
-                    st.session_state.student_draft = ""
+                    st.session_state.student_draft = "" # Полностью удаляем текст
                     st.session_state.exam_end_time = None 
-                    st.query_params.clear()
+                    st.query_params.clear() # Очищаем URL
                     st.rerun()
 
     with col_right:
-        if not st.session_state.exam_submitted:
-            st.markdown("### Прокторинг")
-            st.info("Активирован базовый прокторинг: фиксируются выход из вкладки/окна, копирование, вставка и контекстное меню.")
+        st.markdown("### Прокторинг")
+        st.info("Активирован базовый прокторинг: фиксируются выход из вкладки/окна, копирование, вставка и контекстное меню.")
 
         st.markdown("### Критерии оценивания")
         with st.container(height=450):
-            if myp_crit_data:
-                st.markdown(f"**Предмет:** {myp_crit_data.get('subject', '')}")
-                st.markdown(f"**Макс. балл:** {myp_crit_data.get('max_score', '')}")
-                st.markdown("---")
-                for letter in myp_crit_data.get("selected", []):
-                    crit_name = myp_crit_data.get("criteria_names", {}).get(letter, "")
-                    success = myp_crit_data.get("success", {}).get(letter, "")
-                    st.markdown(f"**Критерий {letter}: {crit_name}**")
-                    if success:
-                        st.markdown(success)
-                    st.markdown("---")
-            else:
-                st.markdown(exam["criteria"], unsafe_allow_html=True)
+            st.markdown(exam["criteria"], unsafe_allow_html=True)
             
         st.markdown("---")
         
-        # ТАЙМЕР — только во время экзамена
+        # ТАЙМЕР
         if st.session_state.exam_end_time and not st.session_state.exam_submitted:
             if not is_time_up:
+                # Переводим время окончания в миллисекунды для JavaScript (оно неизменно!)
                 end_time_ms = int(st.session_state.exam_end_time * 1000)
                 
                 timer_html = f"""
@@ -1452,6 +1062,7 @@ elif st.session_state.role == "Student":
                         clearInterval(timerInterval);
                         document.getElementById("exam-timer").innerHTML = "⏰ Время вышло!";
                     }} else {{
+                        // Считаем минуты и секунды напрямую из разницы во времени
                         var m = Math.floor(distance / (1000 * 60));
                         var s = Math.floor((distance % (1000 * 60)) / 1000);
                         if (s < 10) {{ s = "0" + s; }}
@@ -1460,6 +1071,7 @@ elif st.session_state.role == "Student":
                 }}, 1000);
                 </script>
                 """
+                # Выводим таймер
                 components.html(timer_html, height=80)
             else:
                 st.markdown("""

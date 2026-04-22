@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: adil-exam
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_REGISTRATION_CODE
+        sync: false
