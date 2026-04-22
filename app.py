@@ -1540,7 +1540,7 @@ elif st.session_state.role == "Student":
                     st.warning("Укажите ваше имя для вопроса.")
                 elif not student_question.strip():
                     st.warning("Напишите текст вопроса.")
-                elif question_name.strip() and s_name.strip() and question_name.strip() != s_name.strip():
+                elif s_name.strip() and question_name.strip() != s_name.strip():
                     st.warning("Имя в вопросе должно совпадать с именем в вашем ответе.")
                 else:
                     c = db_conn.cursor()
