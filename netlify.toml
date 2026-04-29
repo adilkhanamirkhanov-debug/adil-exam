@@ -1,0 +1,24 @@
+[build]
+  # No build step needed – Python dependencies are declared in requirements.txt
+  # and Netlify installs them automatically for each function.
+  functions = "netlify/functions"
+  # Serve the static assets (CSS, images) from the static/ folder directly.
+  publish = "static"
+
+[functions]
+  # Use Python 3.11 runtime for all functions.
+  node_bundler = "esbuild"
+
+[functions."server"]
+  runtime = "python3.11"
+
+# Redirect all non-static requests to the serverless function.
+[[redirects]]
+  from   = "/static/*"
+  to     = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from   = "/*"
+  to     = "/.netlify/functions/server"
+  status = 200
