@@ -3,3 +3,5 @@ openai
 mammoth
 werkzeug
 serverless-wsgi
+streamlit
+pandas
