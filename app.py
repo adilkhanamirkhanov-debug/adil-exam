@@ -853,8 +853,8 @@ def teacher_ai_criteria():
     try:
         criteria = generate_criteria_with_ai(title, desc, exam_type, subject)
         return jsonify({"criteria": criteria})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return jsonify({"error": "Операция не прошла. Попробуйте ещё раз."}), 500
 
 
 @app.route("/teacher/ai-improve", methods=["POST"])
@@ -868,8 +868,8 @@ def teacher_ai_improve():
     try:
         improved = improve_criteria_with_ai(existing, exam_type)
         return jsonify({"criteria": improved})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return jsonify({"error": "Операция не прошла. Попробуйте ещё раз."}), 500
 
 
 # ── Admin routes ──────────────────────────────────────────────────────────────
@@ -1006,4 +1006,4 @@ with app.app_context():
     init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)
