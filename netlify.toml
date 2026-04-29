@@ -7,6 +7,7 @@
 
 [functions."server"]
   runtime = "python3.11"
+  included_files = ["app.py", "templates/**", "static/**"]
 
 # Redirect all non-static requests to the serverless function.
 [[redirects]]
